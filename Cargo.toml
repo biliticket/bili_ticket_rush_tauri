@@ -12,7 +12,7 @@ resolver = "2"
 version = "7.0.0"
 edition = "2024"
 authors = ["biliticket"]
-license = "GPLv3"
+license = "AGPL-3.0"
 description = "B站会员购自动抢票工具"
 repository = "https://github.com/biliticket/bili_ticket_rush"
 readme = "README.md"
@@ -22,3 +22,10 @@ categories = ["gui", "automation"]
 [patch.crates-io]
 ort = { git="https://github.com/biliticket/ort" }
 ort-sys = { git = "https://github.com/biliticket/ort" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

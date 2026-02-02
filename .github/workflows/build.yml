@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       debug: ${{ matrix.debug }}
-      build_type: ${{ matrix.debug == 'release' && '正式版' || 'debug' }}
+      build_type: ${{ matrix.debug == 'release' && 'release' || 'debug' }}
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +34,8 @@ jobs:
       - name: Install glibc2
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev pkg-config
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2      
       - name: Build Release
         if: matrix.debug == 'release'
         run: cargo build --verbose --release
