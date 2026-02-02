@@ -78,7 +78,11 @@ function initializeEventListeners() {
 
     "start-grab-btn": startGrab,
     "stop-grab-btn": stopGrab,
-    "refresh-monitor-btn": refreshMonitor
+    "refresh-monitor-btn": refreshMonitor,
+
+    "load-logs-btn": loadLogs,
+    "clear-logs-btn": clearLogs,
+    "export-logs-btn": exportLogs,
   };
 
   Object.keys(buttonIds).forEach((id) => {
@@ -431,10 +435,7 @@ async function loadAccounts() {
       list.appendChild(li);
     });
 
-    const countEl = document.getElementById("account-count");
-    if (countEl) {
-        countEl.textContent = accounts.length;
-    }
+    document.getElementById("account-count").textContent = accounts.length;
   } catch (error) {
     console.error("Failed to load accounts:", error);
     loading.style.display = "none";
@@ -1042,7 +1043,7 @@ async function startGrab() {
     document.getElementById("monitor-status").style.color =
       "var(--success-color)";
 
-    showSuccess("开始抢票! 任务ID: " + taskId);
+    showSuccess("开始抢票！任务ID: " + taskId);
     await refreshMonitor();
   } catch (error) {
     console.error("启动抢票失败:", error);
@@ -1335,6 +1336,68 @@ function resetSettings() {
     document.getElementById("custom-ua").checked = false;
     document.getElementById("user-agent").value = "";
     showSuccess("设置已恢复默认");
+  }
+}
+
+async function loadLogs() {
+  const container = document.getElementById("logs-container");
+  try {
+    if (!invoke) {
+      throw new Error("Tauri invoke function not available");
+    }
+    const logs = await invoke("get_logs");
+
+    if (logs && logs.length > 0) {
+      container.innerHTML = logs
+        .map((log) => `<div class="log-entry">${log}</div>`)
+        .join("");
+      container.scrollTop = container.scrollHeight;
+
+      document.getElementById("log-count").textContent = logs.length;
+    } else {
+      container.innerHTML = '<div class="log-entry">暂无日志</div>';
+      document.getElementById("log-count").textContent = "0";
+    }
+  } catch (error) {
+    console.error("Failed to load logs:", error);
+    container.innerHTML = `<div style="color: var(--error-color);">加载日志失败: ${error.message}</div>`;
+    document.getElementById("log-count").textContent = "0";
+  }
+}
+
+async function clearLogs() {
+  if (!confirm("确定要清空所有日志吗？此操作不可撤销！")) return;
+  try {
+    if (!invoke) {
+      throw new Error("Tauri invoke function not available");
+    }
+
+    await invoke("clear_logs");
+    showSuccess("日志已清空");
+    await loadLogs();
+  } catch (error) {
+    showError("设置失败: " + error);
+  }
+}
+
+async function exportLogs() {
+  try {
+    if (!invoke) {
+      throw new Error("Tauri invoke function not available");
+    }
+    const logs = await invoke("get_logs");
+    const logText = logs.join("\n");
+    const blob = new Blob([logText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `btr_logs_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    showError("设置失败: " + error);
   }
 }
 

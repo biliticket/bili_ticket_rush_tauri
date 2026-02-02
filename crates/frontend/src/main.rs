@@ -29,7 +29,7 @@ use common::utility::CustomConfig;
 use common::utils::{Config, save_config};
 
 const APP_NAME: &str = "BTR";
-const APP_VERSION: &str = "7.0.0";
+const APP_VERSION: &str = "6.6.2-indev";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Project {
@@ -836,7 +836,7 @@ fn set_grab_mode(state: State<'_, AppState>, mode: u8) -> Result<(), String> {
 
 #[tauri::command]
 fn cancel_task(state: State<'_, AppState>, task_id: String) -> Result<(), String> {
-    let state = state
+    let mut state = state
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;

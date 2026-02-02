@@ -1,5 +1,6 @@
 /target
 /.vscode/
+/.idea/
 *.sublime-*
 *.swp
 *~
@@ -11,9 +12,12 @@ Cargo.lock
 Thumbs.db
 *.tmp
 *.log
+/学习
 *txt
 config.json
 config
-/logs/
+/Log/
 /models/
+/效果/
+permissions
 models
