@@ -19,7 +19,6 @@
                 <a class="nav-tab" data-tab="monitor">监控</a>
                 <a class="nav-tab" data-tab="projects">项目列表</a>
                 <a class="nav-tab" data-tab="settings">设置</a>
-                <a class="nav-tab" data-tab="logs">系统日志</a>
                 <a class="nav-tab" data-tab="grab-logs">抢票日志</a>
                 <a class="nav-tab" data-tab="help">帮助</a>
             </nav>
@@ -41,27 +40,6 @@
                     </p>
                     <p class="quick-start-item">3. 在"设置"中配置抢票参数</p>
                     <p class="quick-start-item">4. 在"监控"页面开始抢票</p>
-                </div>
-                <div class="card">
-                    <h3 class="card-title">系统信息</h3>
-                    <div class="stats-grid">
-                        <div>
-                            <div class="stats-label">版本</div>
-                            <div class="stats-value">v7.0.0</div>
-                        </div>
-                        <div>
-                            <div class="stats-label">运行时间</div>
-                            <div class="stats-value" id="uptime">0 分钟</div>
-                        </div>
-                        <div>
-                            <div class="stats-label">账号数量</div>
-                            <div class="stats-value" id="account-count">0</div>
-                        </div>
-                        <div>
-                            <div class="stats-label">日志数量</div>
-                            <div class="stats-value" id="log-count">0</div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -641,28 +619,6 @@
                 </div>
             </div>
 
-            <div id="tab-logs" class="tab-content">
-                <div class="card">
-                    <h2 class="card-title">系统日志</h2>
-                    <div class="monitor-controls">
-                        <button class="btn btn-primary" id="load-logs-btn">
-                            刷新日志
-                        </button>
-                        <button class="btn btn-danger" id="clear-logs-btn">
-                            清空日志
-                        </button>
-                        <button class="btn btn-success" id="export-logs-btn">
-                            导出日志
-                        </button>
-                    </div>
-                    <div
-                        id="logs-container"
-                        class="log-container"
-                        style="margin-top: 16px"
-                    ></div>
-                </div>
-            </div>
-
             <div id="tab-grab-logs" class="tab-content">
                 <div class="card">
                     <h2 class="card-title">抢票日志</h2>
@@ -675,12 +631,6 @@
                         </button>
                         <button class="btn btn-danger" id="clear-grab-logs-btn">
                             清空抢票日志
-                        </button>
-                        <button
-                            class="btn btn-success"
-                            id="export-grab-logs-btn"
-                        >
-                            导出抢票日志
                         </button>
                         <button class="btn btn-info" id="auto-scroll-btn">
                             自动滚动: 开启
