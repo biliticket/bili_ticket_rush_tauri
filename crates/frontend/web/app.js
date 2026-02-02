@@ -1569,10 +1569,13 @@ async function testPush() {
   }
 
   try {
-    const result = await invoke("push_test");
+    const result = await invoke("push_test", {
+      title: "测试",
+      message: "BTR 测试推送",
+    });
     showSuccess("测试推送已发送：" + result);
   } catch (error) {
-    showError("设置失败: " + error);
+    showError("发送失败: " + error);
   }
 }
 

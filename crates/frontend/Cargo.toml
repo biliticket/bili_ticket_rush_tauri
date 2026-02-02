@@ -10,7 +10,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.11.22", features = ["json", "blocking", "cookies"] }
+reqwest = { version = "0.11.27", features = ["json", "blocking", "cookies"] }
 chrono = "0.4"
 rand = "0.8"
 uuid = { version = "1", features = ["v4"] }
