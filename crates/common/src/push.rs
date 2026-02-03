@@ -93,18 +93,6 @@ impl PushConfig {
             }
         }
 
-        if self.enabled_methods.contains(&"smtp".to_string())
-            && !self.smtp_config.smtp_server.is_empty()
-        {
-            let (success, msg) = self.push_smtp(title, message).await;
-            if success {
-                success_count += 1;
-            } else {
-                failure_count += 1;
-                failures.push(format!("SMTP推送出错: {}", msg));
-            }
-        }
-
         if self.enabled_methods.contains(&"gotify".to_string())
             && !self.gotify_config.gotify_token.is_empty()
         {
@@ -359,9 +347,5 @@ impl PushConfig {
             }
             Err(e) => (false, format!("推送失败: {}", e)),
         }
-    }
-
-    pub async fn push_smtp(&self, _title: &str, _message: &str) -> (bool, String) {
-        return (false, "SMTP推送功能未实现".to_string());
     }
 }

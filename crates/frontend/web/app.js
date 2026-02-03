@@ -1158,22 +1158,17 @@ async function loadSettings() {
           state.push_config.enabled_methods.includes("dingtalk");
         document.getElementById("push-method-wechat").checked =
           state.push_config.enabled_methods.includes("wechat");
-        document.getElementById("push-method-smtp").checked =
-          state.push_config.enabled_methods.includes("smtp");
         document.getElementById("push-method-gotify").checked =
           state.push_config.enabled_methods.includes("gotify");
       } else {
-        // 如果没有enabled_methods，默认全选
-        document.getElementById("push-method-bark").checked = true;
-        document.getElementById("push-method-pushplus").checked = true;
-        document.getElementById("push-method-fangtang").checked = true;
-        document.getElementById("push-method-dingtalk").checked = true;
-        document.getElementById("push-method-wechat").checked = true;
-        document.getElementById("push-method-smtp").checked = true;
-        document.getElementById("push-method-gotify").checked = true;
+        document.getElementById("push-method-bark").checked = false;
+        document.getElementById("push-method-pushplus").checked = false;
+        document.getElementById("push-method-fangtang").checked = false;
+        document.getElementById("push-method-dingtalk").checked = false;
+        document.getElementById("push-method-wechat").checked = false;
+        document.getElementById("push-method-gotify").checked = false;
       }
 
-      // 更新推送设置的可见性
       updatePushSettingsVisibility();
 
       if (state.push_config.gotify_config) {
@@ -1181,21 +1176,6 @@ async function loadSettings() {
           state.push_config.gotify_config.gotify_url || "";
         document.getElementById("gotify-token").value =
           state.push_config.gotify_config.gotify_token || "";
-      }
-
-      if (state.push_config.smtp_config) {
-        document.getElementById("smtp-server").value =
-          state.push_config.smtp_config.smtp_server || "";
-        document.getElementById("smtp-port").value =
-          state.push_config.smtp_config.smtp_port || "";
-        document.getElementById("smtp-username").value =
-          state.push_config.smtp_config.smtp_username || "";
-        document.getElementById("smtp-password").value =
-          state.push_config.smtp_config.smtp_password || "";
-        document.getElementById("smtp-from").value =
-          state.push_config.smtp_config.smtp_from || "";
-        document.getElementById("smtp-to").value =
-          state.push_config.smtp_config.smtp_to || "";
       }
     }
   } catch (error) {
@@ -1220,12 +1200,6 @@ async function saveSettings() {
     const wechatToken = document.getElementById("wechat-token").value;
     const gotifyUrl = document.getElementById("gotify-url").value;
     const gotifyToken = document.getElementById("gotify-token").value;
-    const smtpServer = document.getElementById("smtp-server").value;
-    const smtpPort = document.getElementById("smtp-port").value;
-    const smtpUsername = document.getElementById("smtp-username").value;
-    const smtpPassword = document.getElementById("smtp-password").value;
-    const smtpFrom = document.getElementById("smtp-from").value;
-    const smtpTo = document.getElementById("smtp-to").value;
     const customUa = document.getElementById("custom-ua").checked;
     const userAgent = document.getElementById("user-agent").value;
 
@@ -1244,9 +1218,6 @@ async function saveSettings() {
     }
     if (document.getElementById("push-method-wechat").checked) {
       enabledMethods.push("wechat");
-    }
-    if (document.getElementById("push-method-smtp").checked) {
-      enabledMethods.push("smtp");
     }
     if (document.getElementById("push-method-gotify").checked) {
       enabledMethods.push("gotify");
@@ -1272,11 +1243,6 @@ async function saveSettings() {
       return;
     }
 
-    if (smtpServer && !smtpPort) {
-      showError("请填写SMTP端口");
-      return;
-    }
-
     if (customUa && !userAgent.trim()) {
       showError("启用自定义User-Agent时，必须填写User-Agent");
       return;
@@ -1295,12 +1261,6 @@ async function saveSettings() {
       wechatToken: wechatToken,
       gotifyUrl: gotifyUrl,
       gotifyToken: gotifyToken,
-      smtpServer: smtpServer,
-      smtpPort: smtpPort,
-      smtpUsername: smtpUsername,
-      smtpPassword: smtpPassword,
-      smtpFrom: smtpFrom,
-      smtpTo: smtpTo,
       customUa: customUa,
       userAgent: userAgent,
     });
@@ -1325,12 +1285,6 @@ function resetSettings() {
     document.getElementById("wechat-token").value = "";
     document.getElementById("gotify-url").value = "";
     document.getElementById("gotify-token").value = "";
-    document.getElementById("smtp-server").value = "";
-    document.getElementById("smtp-port").value = "";
-    document.getElementById("smtp-username").value = "";
-    document.getElementById("smtp-password").value = "";
-    document.getElementById("smtp-from").value = "";
-    document.getElementById("smtp-to").value = "";
     document.getElementById("custom-ua").checked = false;
     document.getElementById("user-agent").value = "";
     showSuccess("设置已恢复默认");
@@ -1744,7 +1698,6 @@ function updatePushSettingsVisibility() {
     "fangtang",
     "dingtalk",
     "wechat",
-    "smtp",
     "gotify",
   ];
   methods.forEach((method) => {
@@ -1763,7 +1716,6 @@ function setupPushSettingsEventListeners() {
     "fangtang",
     "dingtalk",
     "wechat",
-    "smtp",
     "gotify",
   ];
   methods.forEach((method) => {

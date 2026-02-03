@@ -151,8 +151,6 @@ pub struct PushConfig {
     pub wechat_token: String,
     #[serde(default)]
     pub gotify_config: GotifyConfig,
-    #[serde(default)]
-    pub smtp_config: SmtpConfig,
 }
 
 impl Default for PushConfig {
@@ -174,7 +172,6 @@ impl Default for PushConfig {
             dingtalk_token: String::new(),
             wechat_token: String::new(),
             gotify_config: GotifyConfig::default(),
-            smtp_config: SmtpConfig::default(),
         }
     }
 }
@@ -183,16 +180,6 @@ impl Default for PushConfig {
 pub struct GotifyConfig {
     pub gotify_url: String,
     pub gotify_token: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct SmtpConfig {
-    pub smtp_server: String,
-    pub smtp_port: String,
-    pub smtp_username: String,
-    pub smtp_password: String,
-    pub smtp_from: String,
-    pub smtp_to: String,
 }
 
 // --- Custom Config Struct ---

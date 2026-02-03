@@ -18,3 +18,4 @@ config
 /logs/
 /models/
 models
+/Log/

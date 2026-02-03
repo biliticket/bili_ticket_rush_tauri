@@ -1427,12 +1427,6 @@ fn save_settings(
     wechat_token: String,
     gotify_url: String,
     gotify_token: String,
-    smtp_server: String,
-    smtp_port: String,
-    smtp_username: String,
-    smtp_password: String,
-    smtp_from: String,
-    smtp_to: String,
     custom_ua: bool,
     user_agent: String,
 ) -> Result<(), String> {
@@ -1455,12 +1449,6 @@ fn save_settings(
     state.push_config.wechat_token = wechat_token;
     state.push_config.gotify_config.gotify_url = gotify_url;
     state.push_config.gotify_config.gotify_token = gotify_token;
-    state.push_config.smtp_config.smtp_server = smtp_server;
-    state.push_config.smtp_config.smtp_port = smtp_port;
-    state.push_config.smtp_config.smtp_username = smtp_username;
-    state.push_config.smtp_config.smtp_password = smtp_password;
-    state.push_config.smtp_config.smtp_from = smtp_from;
-    state.push_config.smtp_config.smtp_to = smtp_to;
 
     // Update the config struct
     state.config.grab_mode = grab_mode;
