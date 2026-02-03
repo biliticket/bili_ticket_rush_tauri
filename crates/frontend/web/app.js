@@ -1072,8 +1072,6 @@ async function stopGrab() {
     document.getElementById("monitor-status").textContent = "已停止";
     document.getElementById("monitor-status").style.color =
       "var(--error-color)";
-
-    showInfo("停止抢票");
   } catch (error) {
     showError("停止失败: " + error);
   }

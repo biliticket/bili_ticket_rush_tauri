@@ -20,6 +20,7 @@ use self::{
 use common::taskmanager::*;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 pub struct TaskManagerImpl {
     task_sender: mpsc::Sender<TaskMessage>,
@@ -30,7 +31,7 @@ pub struct TaskManagerImpl {
 }
 
 enum TaskMessage {
-    SubmitTask(TaskRequest),
+    SubmitTask((String, TaskRequest)),
     CancelTask(String),
     Shutdown,
 }
@@ -44,56 +45,52 @@ impl TaskManager for TaskManagerImpl {
         let rt = runtime.clone();
 
         let worker = thread::spawn(move || {
+            let mut task_handles: HashMap<String, JoinHandle<()>> = HashMap::new();
             rt.block_on(async {
                 while let Some(msg) = task_rx.recv().await {
                     match msg {
-                        TaskMessage::SubmitTask(request) => {
+                        TaskMessage::SubmitTask((task_id, request)) => {
                             let result_tx = result_tx.clone();
 
-                            match request {
+                            let handle = match request {
                                 TaskRequest::QrCodeLoginRequest(qrcode_req) => {
-                                    tokio::spawn(handle_qrcode_login_request(qrcode_req, result_tx));
+                                    tokio::spawn(handle_qrcode_login_request(qrcode_req, result_tx))
                                 }
                                 TaskRequest::LoginSmsRequest(login_sms_req) => {
-                                    tokio::spawn(handle_login_sms_request(login_sms_req, result_tx));
+                                    tokio::spawn(handle_login_sms_request(login_sms_req, result_tx))
                                 }
                                 TaskRequest::PushRequest(push_req) => {
-                                    tokio::spawn(handle_push_request(push_req, result_tx));
+                                    tokio::spawn(handle_push_request(push_req, result_tx))
                                 }
-                                TaskRequest::SubmitLoginSmsRequest(login_sms_req) => {
-                                    tokio::spawn(handle_submit_login_sms_request(
-                                        login_sms_req,
-                                        result_tx,
-                                    ));
-                                }
-                                TaskRequest::GetAllorderRequest(get_order_req) => {
-                                    tokio::spawn(handle_get_all_order_request(
-                                        get_order_req,
-                                        result_tx,
-                                    ));
-                                }
+                                TaskRequest::SubmitLoginSmsRequest(login_sms_req) => tokio::spawn(
+                                    handle_submit_login_sms_request(login_sms_req, result_tx),
+                                ),
+                                TaskRequest::GetAllorderRequest(get_order_req) => tokio::spawn(
+                                    handle_get_all_order_request(get_order_req, result_tx),
+                                ),
                                 TaskRequest::GetTicketInfoRequest(get_ticketinfo_req) => {
                                     tokio::spawn(handle_get_ticket_info_request(
                                         get_ticketinfo_req,
                                         result_tx,
-                                    ));
+                                    ))
                                 }
                                 TaskRequest::GetBuyerInfoRequest(get_buyerinfo_req) => {
                                     tokio::spawn(handle_get_buyer_info_request(
                                         get_buyerinfo_req,
                                         result_tx,
-                                    ));
+                                    ))
                                 }
-                                TaskRequest::GrabTicketRequest(grab_ticket_req) => {
-                                    tokio::spawn(handle_grab_ticket_request(
-                                        grab_ticket_req,
-                                        result_tx,
-                                    ));
-                                }
-                            }
+                                TaskRequest::GrabTicketRequest(grab_ticket_req) => tokio::spawn(
+                                    handle_grab_ticket_request(grab_ticket_req, result_tx),
+                                ),
+                            };
+                            task_handles.insert(task_id, handle);
                         }
-                        TaskMessage::CancelTask(_task_id) => {
-                            // 取消任务逻辑
+                        TaskMessage::CancelTask(task_id) => {
+                            if let Some(handle) = task_handles.remove(&task_id) {
+                                log::info!("正在取消任务: {}", &task_id);
+                                handle.abort();
+                            }
                         }
                         TaskMessage::Shutdown => break,
                     }
@@ -121,6 +118,13 @@ impl TaskManager for TaskManagerImpl {
                 }
             }
             TaskRequest::GetTicketInfoRequest(req) => {
+                if !req.task_id.is_empty() {
+                    req.task_id.clone()
+                } else {
+                    uuid::Uuid::new_v4().to_string()
+                }
+            }
+            TaskRequest::GrabTicketRequest(req) => {
                 if !req.task_id.is_empty() {
                     req.task_id.clone()
                 } else {
@@ -248,14 +252,23 @@ impl TaskManager for TaskManagerImpl {
                 self.running_tasks
                     .insert(task_id.clone(), Task::GetBuyerInfoTask(task));
             }
-            TaskRequest::GrabTicketRequest(_) => {
+            TaskRequest::GrabTicketRequest(grab_ticket_req) => {
                 log::info!("提交抢票任务 ID: {}", task_id);
+                let task = GrabTicketTask {
+                    task_id: task_id.clone(),
+                    biliticket: grab_ticket_req.biliticket.clone(),
+                    status: TaskStatus::Pending,
+                    client: grab_ticket_req.cookie_manager.client.clone(),
+                    start_time: Some(std::time::Instant::now()),
+                };
+                self.running_tasks
+                    .insert(task_id.clone(), Task::GrabTicketTask(task));
             }
         }
 
         if let Err(e) = self
             .task_sender
-            .blocking_send(TaskMessage::SubmitTask(request))
+            .blocking_send(TaskMessage::SubmitTask((task_id.clone(), request)))
         {
             return Err(format!("无法提交任务: {}", e));
         }
@@ -274,18 +287,31 @@ impl TaskManager for TaskManagerImpl {
     }
 
     fn cancel_task(&mut self, task_id: &str) -> Result<(), String> {
-        if !self.running_tasks.contains_key(task_id) {
-            return Err("任务不存在".to_string());
-        }
+        if let Some(task) = self.running_tasks.get_mut(task_id) {
+            if let Err(e) = self
+                .task_sender
+                .blocking_send(TaskMessage::CancelTask(task_id.to_owned()))
+            {
+                return Err(format!("无法取消任务: {}", e));
+            }
 
-        if let Err(e) = self
-            .task_sender
-            .blocking_send(TaskMessage::CancelTask(task_id.to_owned()))
-        {
-            return Err(format!("无法取消任务: {}", e));
+            // Update status.
+            let new_status = TaskStatus::Cancelled;
+            match task {
+                Task::QrCodeLoginTask(t) => t.status = new_status,
+                Task::LoginSmsRequestTask(t) => t.status = new_status,
+                Task::PushTask(t) => t.status = new_status,
+                Task::SubmitLoginSmsRequestTask(t) => t.status = new_status,
+                Task::GetAllorderRequestTask(t) => t.status = new_status,
+                Task::GetTicketInfoTask(t) => t.status = new_status,
+                Task::GetBuyerInfoTask(t) => t.status = new_status,
+                Task::GrabTicketTask(t) => t.status = new_status,
+            }
+            log::info!("任务 {} 已被标记为取消", task_id);
+            Ok(())
+        } else {
+            Err("任务不存在".to_string())
         }
-
-        Ok(())
     }
 
     fn get_task_status(&self, task_id: &str) -> Option<TaskStatus> {

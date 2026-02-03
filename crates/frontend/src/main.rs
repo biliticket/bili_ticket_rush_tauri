@@ -17,21 +17,18 @@ use backend::taskmanager::TaskManagerImpl;
 use common::PushType;
 use common::account::{Account, add_account};
 use common::captcha::LocalCaptcha;
-use common::login::LoginInput;
 use common::config::PushConfig;
+use common::login::LoginInput;
 
+use common::config::{BtrConfig as Config, CustomConfig, Project};
 use common::taskmanager::{
     GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, TaskManager, TaskRequest,
     TaskStatus,
 };
 use common::ticket::{BilibiliTicket, TicketInfo};
-use common::config::{BtrConfig as Config, CustomConfig, Project};
-
 
 const APP_NAME: &str = "BTR";
 const APP_VERSION: &str = "7.0.0";
-
-
 
 #[derive(Clone)]
 struct AppState {
@@ -244,7 +241,10 @@ fn add_account_by_cookie(state: State<'_, AppState>, cookie: String) -> Result<A
         .map_err(|_| "state lock failed".to_string())?;
     let account = add_account(&cookie, &state.client, &state.default_ua)?;
     state.config.add_account(account.clone());
-    state.config.save_config().map_err(|e| format!("save config failed: {}", e))?;
+    state
+        .config
+        .save_config()
+        .map_err(|e| format!("save config failed: {}", e))?;
     state.accounts.push(account.clone());
     Ok(account)
 }
@@ -939,7 +939,7 @@ fn start_grab_ticket(state: State<'_, AppState>) -> Result<String, String> {
             .map(|id| id.to_string())
             .unwrap_or_default(),
         count: 1,
-        buyer_info: vec![],
+        buyer_info: state.selected_buyer_list.clone().unwrap_or_default(),
         cookie_manager,
         biliticket,
         grab_mode: state.grab_mode,

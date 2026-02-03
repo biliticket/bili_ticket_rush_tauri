@@ -500,8 +500,7 @@ pub async fn create_order(
     } else {
         format!(
             "https://show.bilibili.com/api/ticket/order/createV2?project_id={}&ptoken={}",
-            project_id,
-            ptoken
+            project_id, ptoken
         )
     };
 

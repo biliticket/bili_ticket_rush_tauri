@@ -1,5 +1,6 @@
 pub mod account;
 pub mod captcha;
+pub mod config;
 pub mod http_utils;
 pub mod login;
 pub mod push;
@@ -7,7 +8,6 @@ pub mod record_log;
 pub mod show_orderlist;
 pub mod taskmanager;
 pub mod ticket;
-pub mod config;
 pub mod utils;
 
 pub mod cookie_manager;

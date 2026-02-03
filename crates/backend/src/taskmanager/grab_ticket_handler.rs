@@ -4,31 +4,18 @@ use std::{
 };
 
 use crate::api::{
-
     check_fake_ticket, confirm_ticket_order, create_order, get_countdown, get_ticket_token,
-
 };
 
 use common::{
-
     captcha::handle_risk_verification,
-
-    cookie_manager::CookieManager,
-
-    gen_cp::CTokenGenerator,
-
-    taskmanager::{GrabTicketRequest, GrabTicketResult, TaskResult},
-
-    ticket::{
-
-        BuyerInfo, CheckFakeResult, ConfirmTicketResult,
-
-    },
-
     config::CustomConfig,
-
+    cookie_manager::CookieManager,
+    gen_cp::CTokenGenerator,
+    taskmanager::{GrabTicketRequest, GrabTicketResult, TaskResult},
+    ticket::{BuyerInfo, CheckFakeResult, ConfirmTicketResult},
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use serde_json::json;
 use tokio::sync::mpsc;
 
@@ -80,7 +67,7 @@ pub async fn handle_grab_ticket_request(
                 project_id,
                 screen_id,
                 ticket_id,
-                                count.try_into().unwrap(),
+                count.try_into().unwrap(),
                 is_hot,
                 project_info,
                 task_id,
@@ -101,7 +88,7 @@ pub async fn handle_grab_ticket_request(
                 project_id,
                 screen_id,
                 ticket_id,
-                                count.try_into().unwrap(),
+                count.try_into().unwrap(),
                 is_hot,
                 task_id,
                 uid,
@@ -121,7 +108,7 @@ pub async fn handle_grab_ticket_request(
                 project_id,
                 screen_id,
                 ticket_id,
-                                count.try_into().unwrap(),
+                count.try_into().unwrap(),
                 is_hot,
                 skip_words,
                 rng,
@@ -252,9 +239,10 @@ async fn timed_grab_ticket_mode(
                         risk_param,
                         &custon_config,
                         &csrf,
-                                                local_captcha.clone().expect("REASON"),
+                        local_captcha.clone().expect("REASON"),
                     )
-                    .await {
+                    .await
+                    {
                         Ok(()) => log::info!("验证码处理成功！"),
                         Err(e) => {
                             log::error!("验证码处理失败: {}", e);
@@ -396,9 +384,10 @@ async fn direct_grab_ticket_mode(
                         risk_param,
                         &custon_config,
                         &csrf,
-                                                local_captcha.clone().expect("REASON"),
+                        local_captcha.clone().expect("REASON"),
                     )
-                    .await {
+                    .await
+                    {
                         Ok(()) => log::info!("验证码处理成功！"),
                         Err(e) => {
                             log::error!("验证码处理失败: {}", e);
@@ -421,7 +410,9 @@ async fn direct_grab_ticket_mode(
                     }
                 } else {
                     match risk_param.code {
-                        100080 | 100082 => log::error!("抢票失败，场次/项目/日期选择有误，请重新提交任务"),
+                        100080 | 100082 => {
+                            log::error!("抢票失败，场次/项目/日期选择有误，请重新提交任务")
+                        }
                         100039 => log::error!("抢票失败，该场次已停售，请重新提交任务"),
                         _ => log::error!("抢票失败，未知错误，请重新提交任务"),
                     }
@@ -473,14 +464,15 @@ async fn leak_grab_ticket_mode(
     const MAX_TOKEN_RETRY: i8 = 5;
 
     'main_loop: loop {
-        let project_data = match get_project(cookie_manager.clone(), project_id.clone().as_str()).await {
-            Ok(data) => data,
-            Err(e) => {
-                log::error!("获取项目数据失败，原因：{}", e);
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                continue;
-            }
-        };
+        let project_data =
+            match get_project(cookie_manager.clone(), project_id.clone().as_str()).await {
+                Ok(data) => data,
+                Err(e) => {
+                    log::error!("获取项目数据失败，原因：{}", e);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
         is_hot = project_data.data.hot_project;
 
         if ![1, 2].contains(&project_data.data.id_bind) {
@@ -592,20 +584,24 @@ async fn leak_grab_ticket_mode(
                                 risk_param,
                                 &custon_config,
                                 &csrf,
-                                                        local_captcha.clone().expect("REASON"),
+                                local_captcha.clone().expect("REASON"),
                             )
-                            .await {
+                            .await
+                            {
                                 Ok(()) => log::info!("验证码处理成功！"),
                                 Err(e) => {
                                     log::error!("验证码处理失败: {}", e);
                                     token_retry_count += 1;
                                     if token_retry_count >= MAX_TOKEN_RETRY {
-                                        let task_result = 
+                                        let task_result =
                                             TaskResult::GrabTicketResult(GrabTicketResult {
                                                 task_id: task_id.clone(),
                                                 uid,
                                                 success: false,
-                                                message: format!("验证码处理失败，已达最大重试次数: {}", e),
+                                                message: format!(
+                                                    "验证码处理失败，已达最大重试次数: {}",
+                                                    e
+                                                ),
                                                 order_id: None,
                                                 pay_token: None,
                                                 pay_result: None,
@@ -624,20 +620,19 @@ async fn leak_grab_ticket_mode(
                             }
                             token_retry_count += 1;
                             if token_retry_count >= MAX_TOKEN_RETRY {
-                                let task_result = 
-                                    TaskResult::GrabTicketResult(GrabTicketResult {
-                                        task_id: task_id.clone(),
-                                        uid,
-                                        success: false,
-                                        message: format!(
-                                            "获取token失败，错误代码: {}，错误信息：{}",
-                                            risk_param.code, risk_param.message
-                                        ),
-                                        order_id: None,
-                                        pay_token: None,
-                                        pay_result: None,
-                                        confirm_result: None,
-                                    });
+                                let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
+                                    task_id: task_id.clone(),
+                                    uid,
+                                    success: false,
+                                    message: format!(
+                                        "获取token失败，错误代码: {}，错误信息：{}",
+                                        risk_param.code, risk_param.message
+                                    ),
+                                    order_id: None,
+                                    pay_token: None,
+                                    pay_result: None,
+                                    confirm_result: None,
+                                });
                                 let _ = result_tx.send(task_result).await;
                                 break 'main_loop;
                             }
@@ -685,7 +680,8 @@ async fn handle_grab_ticket(
                 uid,
                 result_tx,
             )
-            .await {
+            .await
+            {
                 return (success, retry_limit);
             }
 
@@ -740,7 +736,8 @@ async fn try_create_order(
             false,
             None,
         )
-        .await {
+        .await
+        {
             Ok(order_result) => {
                 log::info!("下单成功！订单信息{:?}", order_result);
                 let empty_json = json!({});
@@ -768,7 +765,8 @@ async fn try_create_order(
                     pay_token,
                     order_id,
                 )
-                .await {
+                .await
+                {
                     Ok(result) => result,
                     Err(e) => {
                         log::error!("检测假票失败，原因：{}，请前往订单列表查看是否下单成功", e);
@@ -784,7 +782,7 @@ async fn try_create_order(
                     log::error!("假票，继续抢票");
                     continue;
                 }
-                let analyze_result = 
+                let analyze_result =
                     match serde_json::from_value::<CheckFakeResult>(check_result.clone()) {
                         Ok(result) => result,
                         Err(e) => {
@@ -861,7 +859,9 @@ async fn try_create_order(
                         return Some((true, false));
                     }
                     1 => {
-                        log::error!("超人 请慢一点，这是仅限1人抢票的项目，或抢票格式有误，请重新提交任务");
+                        log::error!(
+                            "超人 请慢一点，这是仅限1人抢票的项目，或抢票格式有误，请重新提交任务"
+                        );
                         return Some((true, false));
                     }
                     83000004 => {
@@ -881,11 +881,15 @@ async fn try_create_order(
                         return Some((true, false));
                     }
                     737 => {
-                        log::error!("B站传了一个null回来，请看一下上一行的message提示信息，自行决定是否继续，如果取消请关闭重新打开该应用");
+                        log::error!(
+                            "B站传了一个null回来，请看一下上一行的message提示信息，自行决定是否继续，如果取消请关闭重新打开该应用"
+                        );
                     }
                     999 => log::error!("程序内部错误！传参错误"),
                     919 => {
-                        log::error!("程序内部错误！该项目区分绑定非绑定项目错误，传入意外值，请尝试重新下单以及提出issue");
+                        log::error!(
+                            "程序内部错误！该项目区分绑定非绑定项目错误，传入意外值，请尝试重新下单以及提出issue"
+                        );
                         return Some((true, false));
                     }
                     _ => log::error!("下单失败，未知错误码：{} 可以提出issue修复该问题", e),
@@ -895,7 +899,9 @@ async fn try_create_order(
 
         order_retry_count += 1;
         if grab_ticket_req.grab_mode == 2 && order_retry_count >= 30 {
-            log::error!("捡漏模式下单失败，已达最大重试次数，放弃该票种抢票，准备检测其他票种继续捡漏");
+            log::error!(
+                "捡漏模式下单失败，已达最大重试次数，放弃该票种抢票，准备检测其他票种继续捡漏"
+            );
             return Some((false, true));
         }
         tokio::time::sleep(tokio::time::Duration::from_secs_f32(0.4)).await;

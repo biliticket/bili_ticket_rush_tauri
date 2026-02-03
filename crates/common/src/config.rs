@@ -1,7 +1,7 @@
 use crate::account::Account;
 use aes::Aes128;
-use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, Cbc};
 use rand::Rng;
@@ -91,14 +91,13 @@ impl BtrConfig {
         let plain_text = String::from_utf8(decrypted)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        serde_json::from_str(&plain_text)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        serde_json::from_str(&plain_text).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
     pub fn save_config(&self) -> io::Result<()> {
         let json_str = serde_json::to_string_pretty(self)?;
-        let (iv, encrypted) =
-            encrypt_data(json_str.as_bytes()).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let (iv, encrypted) = encrypt_data(json_str.as_bytes())
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let encoded_iv = BASE64.encode(&iv);
         let encoded_encrypted = BASE64.encode(&encrypted);
         let final_content = format!("{}%{}", encoded_iv, encoded_encrypted);

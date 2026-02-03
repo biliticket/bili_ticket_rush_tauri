@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::account::Account;
+use crate::config::{self, CustomConfig};
 use crate::cookie_manager::CookieManager;
 use config::PushConfig;
-use crate::config::{self, CustomConfig};
 
 //成功下单结构体
 #[derive(Clone, Debug, Deserialize, Serialize)]

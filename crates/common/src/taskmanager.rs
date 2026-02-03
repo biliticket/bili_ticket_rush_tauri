@@ -1,9 +1,9 @@
 use crate::captcha::LocalCaptcha;
+use crate::config::CustomConfig;
 use crate::cookie_manager::CookieManager;
-use config::PushConfig;
 use crate::show_orderlist::OrderResponse;
 use crate::{config, ticket::*};
-use crate::config::CustomConfig;
+use config::PushConfig;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Instant;
@@ -15,6 +15,7 @@ pub enum TaskStatus {
     Running,
     Completed(bool),
     Failed(String),
+    Cancelled,
 }
 
 // 票务结果

@@ -12,7 +12,11 @@ pub async fn handle_push_request(push_req: PushRequest, result_tx: mpsc::Sender<
     log::info!("开始处理推送任务 ID: {}, 类型: {:?}", task_id, push_type);
 
     let (success, result_message) = match push_type {
-        PushType::All => push_config.push_all_async(&title, &message, &jump_url).await,
+        PushType::All => {
+            push_config
+                .push_all_async(&title, &message, &jump_url)
+                .await
+        }
         _ => (false, "未实现的推送类型".to_string()),
     };
 
