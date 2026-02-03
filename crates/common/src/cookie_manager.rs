@@ -72,7 +72,7 @@ impl CookieManager {
         user_agent: Option<&str>,
         create_type: usize, //0：默认网页浏览器 1：app
     ) -> Self {
-        let mut cookies = Self::parse_cookie_string(original_cookie);
+        let cookies = Self::parse_cookie_string(original_cookie);
 
         match create_type {
             0 => {
@@ -140,7 +140,7 @@ impl CookieManager {
                     } else {
                         gen_buvid3and4(client.clone())
                             .await
-                            .unwrap_or_else(|err| ("".to_string(), "".to_string(), "".to_string()))
+                            .unwrap_or_else(|_err| ("".to_string(), "".to_string(), "".to_string()))
                     }
                 };
                 log::debug!("buvid3: {}, buvid4: {}, b_nut: {}", buvid3, buvid4, b_nut);
@@ -512,7 +512,7 @@ impl CookieManager {
             }
             1 => {
                 // App 请求头
-                if let Some(app_data) = &self.app_data {
+                if let Some(_app_data) = &self.app_data {
                     builder.header("x-bili-aurora-zone", "sh")
                     // 其他 app 相关头
                 } else {

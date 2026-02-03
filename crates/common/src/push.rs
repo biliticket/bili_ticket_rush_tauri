@@ -1,69 +1,8 @@
+use crate::config::PushConfig;
 use crate::taskmanager::{PushRequest, PushType, TaskManager, TaskRequest};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
-
-//推送token
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PushConfig {
-    pub enabled: bool,
-    pub enabled_methods: Vec<String>,
-    pub bark_token: String,
-    pub pushplus_token: String,
-    pub fangtang_token: String,
-    pub dingtalk_token: String,
-    pub wechat_token: String,
-    pub gotify_config: GotifyConfig,
-    pub smtp_config: SmtpConfig,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GotifyConfig {
-    pub gotify_url: String,
-    pub gotify_token: String,
-}
-
-impl GotifyConfig {
-    pub fn new() -> Self {
-        Self {
-            gotify_url: String::new(),
-            gotify_token: String::new(),
-        }
-    }
-}
-//邮箱配置(属于pushconfig)
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SmtpConfig {
-    pub smtp_server: String,
-    pub smtp_port: String,
-    pub smtp_username: String,
-    pub smtp_password: String,
-    pub smtp_from: String,
-    pub smtp_to: String,
-}
 
 impl PushConfig {
-    pub fn new() -> Self {
-        Self {
-            enabled: false,
-            enabled_methods: vec![
-                "bark".to_string(),
-                "pushplus".to_string(),
-                "fangtang".to_string(),
-                "dingtalk".to_string(),
-                "wechat".to_string(),
-                "smtp".to_string(),
-                "gotify".to_string(),
-            ],
-            bark_token: String::new(),
-            pushplus_token: String::new(),
-            fangtang_token: String::new(),
-            dingtalk_token: String::new(),
-            wechat_token: String::new(),
-            gotify_config: GotifyConfig::new(),
-            smtp_config: SmtpConfig::new(),
-        }
-    }
-
     pub fn push_all(
         &self,
         title: &str,
@@ -101,7 +40,6 @@ impl PushConfig {
         let mut failure_count = 0;
         let mut failures = Vec::new();
 
-        // 检查是否启用了Bark推送
         if self.enabled_methods.contains(&"bark".to_string()) && !self.bark_token.is_empty() {
             let (success, msg) = self.push_bark(title, message).await;
             if success {
@@ -112,7 +50,6 @@ impl PushConfig {
             }
         }
 
-        // 检查是否启用了PushPlus推送
         if self.enabled_methods.contains(&"pushplus".to_string()) && !self.pushplus_token.is_empty()
         {
             let (success, msg) = self.push_pushplus(title, message).await;
@@ -124,7 +61,6 @@ impl PushConfig {
             }
         }
 
-        // 检查是否启用了方糖推送
         if self.enabled_methods.contains(&"fangtang".to_string()) && !self.fangtang_token.is_empty()
         {
             let (success, msg) = self.push_fangtang(title, message).await;
@@ -136,7 +72,6 @@ impl PushConfig {
             }
         }
 
-        // 检查是否启用了钉钉推送
         if self.enabled_methods.contains(&"dingtalk".to_string()) && !self.dingtalk_token.is_empty()
         {
             let (success, msg) = self.push_dingtalk(title, message).await;
@@ -148,7 +83,6 @@ impl PushConfig {
             }
         }
 
-        // 检查是否启用了微信推送
         if self.enabled_methods.contains(&"wechat".to_string()) && !self.wechat_token.is_empty() {
             let (success, msg) = self.push_wechat(title, message).await;
             if success {
@@ -159,7 +93,6 @@ impl PushConfig {
             }
         }
 
-        // 检查是否启用了SMTP推送
         if self.enabled_methods.contains(&"smtp".to_string())
             && !self.smtp_config.smtp_server.is_empty()
         {
@@ -172,7 +105,6 @@ impl PushConfig {
             }
         }
 
-        // 检查是否启用了Gotify推送
         if self.enabled_methods.contains(&"gotify".to_string())
             && !self.gotify_config.gotify_token.is_empty()
         {
@@ -206,14 +138,14 @@ impl PushConfig {
         jump_url: &Option<String>,
     ) -> (bool, String) {
         let mut default_headers = reqwest::header::HeaderMap::new();
-        let jump_url_real = match jump_url {
-            Some(url) => url,
-            None => &"bilibili://mall/web?url=https://www.bilibili.com".to_string(),
-        };
-        let push_target_url = if self.gotify_config.clone().gotify_url.contains("http") {
-            self.gotify_config.clone().gotify_url
+        let jump_url_real = jump_url
+            .as_deref()
+            .unwrap_or("bilibili://mall/web?url=https://www.bilibili.com");
+
+        let push_target_url = if self.gotify_config.gotify_url.contains("http") {
+            self.gotify_config.gotify_url.clone()
         } else {
-            format!("http://{}", self.gotify_config.clone().gotify_url)
+            format!("http://{}", self.gotify_config.gotify_url)
         };
         default_headers.insert(
             "Content-Type",
@@ -273,12 +205,8 @@ impl PushConfig {
             "title":title,
             "body":message,
             "level":"timeSensitive",
-           /*   #推送中断级别。
-                #active：默认值，系统会立即亮屏显示通知
-                #timeSensitive：时效性通知，可在专注状态下显示通知。
-                #passive：仅将通知添加到通知列表，不会亮屏提醒。  */
             "badge":1,
-            "icon":"https://sr.mihoyo.com/favicon-mi.ico",
+            "icon":"https://i0.hdslb.com/bfs/icon/6e62c9b4413f28388427796d1c2b87e35b736263.png",
             "group":"biliticket",
             "isArchive":1,
 
@@ -433,20 +361,7 @@ impl PushConfig {
         }
     }
 
-    pub async fn push_smtp(&self, title: &str, message: &str) -> (bool, String) {
+    pub async fn push_smtp(&self, _title: &str, _message: &str) -> (bool, String) {
         return (false, "SMTP推送功能未实现".to_string());
-    }
-}
-
-impl SmtpConfig {
-    pub fn new() -> Self {
-        Self {
-            smtp_server: String::new(),
-            smtp_port: String::new(),
-            smtp_username: String::new(),
-            smtp_password: String::new(),
-            smtp_from: String::new(),
-            smtp_to: String::new(),
-        }
     }
 }

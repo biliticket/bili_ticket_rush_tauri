@@ -1,5 +1,5 @@
 use crate::cookie_manager::CookieManager;
-use crate::{ticket::TokenRiskParam, utility::CustomConfig};
+use crate::{config::CustomConfig, ticket::TokenRiskParam};
 use bili_ticket_gt::click::Click;
 use bili_ticket_gt::slide::Slide;
 use serde_json::json;
@@ -57,7 +57,7 @@ pub async fn captcha(
         0 => {
             match captcha_type {
                 32 => {
-                    let mut slide = match local_captcha.slide {
+                    let _slide = match local_captcha.slide {
                         Some(c) => c,
                         None => {
                             return Err("本地打码需要传入slide对象".to_string());

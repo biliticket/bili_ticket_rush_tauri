@@ -18,27 +18,20 @@ use common::PushType;
 use common::account::{Account, add_account};
 use common::captcha::LocalCaptcha;
 use common::login::LoginInput;
-use common::push::PushConfig;
+use common::config::PushConfig;
 
 use common::taskmanager::{
     GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, TaskManager, TaskRequest,
     TaskStatus,
 };
 use common::ticket::{BilibiliTicket, TicketInfo};
-use common::utility::CustomConfig;
-use common::utils::{Config, save_config};
+use common::config::{BtrConfig as Config, CustomConfig, Project};
+
 
 const APP_NAME: &str = "BTR";
-const APP_VERSION: &str = "6.6.2-indev";
+const APP_VERSION: &str = "7.0.0";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Project {
-    id: String,
-    name: String,
-    url: String,
-    created_at: u64,
-    updated_at: u64,
-}
+
 
 #[derive(Clone)]
 struct AppState {
@@ -141,13 +134,16 @@ struct AccountSwitch {
 
 impl AppState {
     pub fn new() -> Self {
-        let config = Config::load_config().unwrap_or_else(|_| Config::new());
+        let config = Config::load_config().unwrap_or_else(|e| {
+            log::error!("加载配置失败，将使用默认配置: {}", e);
+            Config::default()
+        });
 
         let mut state = AppStateInner {
             app: APP_NAME.to_string(),
             version: APP_VERSION.to_string(),
             policy: None,
-            public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApTAS0RElXIs4Kr0bO4n8\nJB+eBFF/TwXUlvtOM9FNgHjK8m13EdwXaLy9zjGTSQr8tshSRr0dQ6iaCG19Zo2Y\nXfvJrwQLqdezMN+ayMKFy58/S9EGG3Np2eGgKHUPnCOAlRicqWvBdQ/cxzTDNCxa\nORMZdJRoBvya7JijLLIC3CoqmMc6Fxe5i8eIP0zwlyZ0L0C1PQ82BcWn58y7tlPY\nTCz12cWnuKwiQ9LSOfJ4odJJQK0k7rXxwBBsYxULRno0CJ3rKfApssW4cfITYVax\nFtdbu0IUsgEeXs3EzNw8yIYnsaoZlFwLS8SMVsiAFOy2y14lR9043PYAQHm1Cjaf\noQIDAQAB\n-----END PUBLIC KEY-----".to_string(),
+            public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKcaQEApTAS0RElXIs4Kr0bO4n8\nJB+eBFF/TwXUlvtOM9FNgHjK8m13EdwXaLy9zjGTSQr8tshSRr0dQ6iaCG19Zo2Y\nXfvJrwQLqdezMN+ayMKFy58/S9EGG3Np2eGgKHUPnCOAlRicqWvBdQ/cxzTDNCxa\nORMZdJRoBvya7JijLLIC3CoqmMc6Fxe5i8eIP0zwlyZ0L0C1PQ82BcWn58y7tlPY\nTCz12cWnuKwiQ9LSOfJ4odJJQK0k7rXxwBBsYxULRno0CJ3rKfApssW4cfITYVax\nFtdbu0IUsgEeXs3EzNw8yIYnsaoZlFwLS8SMVsiAFOy2y14lR9043PYAQHm1Cjaf\noQIDAQAB\n-----END PUBLIC KEY-----".to_string(),
             machine_id: common::machine_id::get_machine_id_ob(),
             selected_tab: 0,
             is_loading: false,
@@ -156,32 +152,23 @@ impl AppState {
             show_log_window: false,
             show_login_window: false,
             login_method: "扫码登录".to_string(),
-            client: Client::new(),
+            client: Client::new(), // Will be replaced
             default_ua: default_user_agent(),
             login_qrcode_url: None,
             qrcode_polling_task_id: None,
-            login_input: LoginInput {
-                phone: String::new(),
-                account: String::new(),
-                password: String::new(),
-                cookie: String::new(),
-                sms_code: String::new(),
-            },
+            login_input: LoginInput::default(),
             pending_sms_task_id: None,
             sms_captcha_key: String::new(),
             cookie_login: None,
-            accounts: Config::load_all_accounts(),
+            accounts: config.accounts.clone(),
             delete_account: None,
             account_switch: None,
             task_manager: Arc::new(Mutex::new(Box::new(TaskManagerImpl::new()))),
-            config: config.clone(),
-            push_config: serde_json::from_value::<PushConfig>(config["push_config"].clone())
-                .unwrap_or_else(|_| PushConfig::new()),
-            custom_config: serde_json::from_value::<CustomConfig>(config["custom_config"].clone())
-                .unwrap_or_else(|_| CustomConfig::new()),
+            push_config: config.push_config.clone(),
+            custom_config: config.custom_config.clone(),
             ticket_id: String::new(),
-            status_delay: 2,
-            grab_mode: 0,
+            status_delay: config.delay_time as usize,
+            grab_mode: config.grab_mode,
             selected_account_uid: None,
             bilibiliticket_list: Vec::new(),
             ticket_info: None,
@@ -207,23 +194,17 @@ impl AppState {
             announce4: None,
             skip_words: None,
             skip_words_input: String::new(),
+            config, // Store the whole config
         };
 
         // Initialize client with custom UA
-        let random_value = generate_random_string(8);
-        state.default_ua = format!(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0 {}",
-            random_value
-        );
-
         if state.custom_config.open_custom_ua && !state.custom_config.custom_ua.is_empty() {
             state.default_ua = state.custom_config.custom_ua.clone();
         }
 
-        let new_client = create_client(state.default_ua.clone());
-        state.client = new_client;
+        state.client = create_client(state.default_ua.clone());
 
-        // Initialize accounts
+        // Initialize accounts' clients
         for account in &mut state.accounts {
             account.ensure_client();
         }
@@ -249,7 +230,9 @@ fn reload_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, String> {
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
-    state.accounts = Config::load_all_accounts();
+    let config = Config::load_config().map_err(|e| e.to_string())?;
+    state.accounts = config.accounts.clone();
+    state.config = config;
     Ok(state.accounts.clone())
 }
 
@@ -260,8 +243,8 @@ fn add_account_by_cookie(state: State<'_, AppState>, cookie: String) -> Result<A
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
     let account = add_account(&cookie, &state.client, &state.default_ua)?;
-    save_config(&mut state.config, None, None, Some(account.clone()))
-        .map_err(|e| format!("save config failed: {}", e))?;
+    state.config.add_account(account.clone());
+    state.config.save_config().map_err(|e| format!("save config failed: {}", e))?;
     state.accounts.push(account.clone());
     Ok(account)
 }
@@ -287,11 +270,8 @@ fn set_account_active(state: State<'_, AppState>, uid: i64, active: bool) -> Res
     if let Some(account) = state.accounts.iter_mut().find(|a| a.uid == uid) {
         account.is_active = active;
         let account_clone = account.clone();
-        drop(state);
-
-        let mut config = Config::load_config().map_err(|e| format!("load config failed: {}", e))?;
-        save_config(&mut config, None, None, Some(account_clone))
-            .map_err(|e| format!("save config failed: {}", e))?;
+        state.config.update_account(&account_clone);
+        state.config.save_config().map_err(|e| e.to_string())?;
         return Ok(());
     }
     Err("account not found".to_string())
@@ -691,9 +671,7 @@ async fn get_policy(state: State<'_, AppState>) -> Result<Value, String> {
                 .inner
                 .lock()
                 .map_err(|_| "state lock failed".to_string())?;
-            if let Value::Object(obj) = &mut state.config["permissions"] {
-                *obj = permissions.as_object().cloned().unwrap_or_default();
-            }
+            state.config.permissions = permissions;
         }
     }
     Ok(policy)
@@ -1350,23 +1328,13 @@ fn add_project(
         updated_at: current_timestamp(),
     };
 
+    // 检查是否已存在相同ID的项目
+    if state.config.projects.iter().any(|p| p.id == id) {
+        return Err("项目ID已存在".to_string());
+    }
+
     // 添加到配置中
-    if !state.config["projects"].is_array() {
-        state.config["projects"] = json!([]);
-    }
-
-    if let Value::Array(ref mut projects) = state.config["projects"] {
-        // 检查是否已存在相同ID的项目
-        for existing_project in projects.iter() {
-            if existing_project["id"].as_str() == Some(&id) {
-                return Err("项目ID已存在".to_string());
-            }
-        }
-
-        let project_json =
-            serde_json::to_value(&project).map_err(|e| format!("序列化项目失败: {}", e))?;
-        projects.push(project_json);
-    }
+    state.config.projects.push(project);
 
     // 保存配置
     if let Err(e) = state.config.save_config() {
@@ -1384,17 +1352,7 @@ fn get_projects(state: State<'_, AppState>) -> Result<Vec<Project>, String> {
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
-
-    // 从配置中获取项目列表
-    let projects = if state.config["projects"].is_array() {
-        let projects_json = &state.config["projects"];
-        serde_json::from_value(projects_json.clone())
-            .map_err(|e| format!("解析项目列表失败: {}", e))?
-    } else {
-        Vec::new()
-    };
-
-    Ok(projects)
+    Ok(state.config.projects.clone())
 }
 
 #[tauri::command]
@@ -1404,29 +1362,21 @@ fn delete_project(state: State<'_, AppState>, id: String) -> Result<(), String> 
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
 
-    if !state.config["projects"].is_array() {
-        return Err("项目列表不存在".to_string());
+    let original_len = state.config.projects.len();
+    state.config.projects.retain(|p| p.id != id);
+
+    if state.config.projects.len() == original_len {
+        return Err("未找到指定ID的项目".to_string());
     }
 
-    if let Value::Array(ref mut projects) = state.config["projects"] {
-        let original_len = projects.len();
-        projects.retain(|project| project["id"].as_str() != Some(&id));
-
-        if projects.len() == original_len {
-            return Err("未找到指定ID的项目".to_string());
-        }
-
-        // 保存配置
-        if let Err(e) = state.config.save_config() {
-            log::error!("删除项目后保存失败: {}", e);
-            return Err(format!("删除项目后保存失败: {}", e));
-        }
-
-        log::info!("项目删除成功: ID={}", id);
-        Ok(())
-    } else {
-        Err("项目列表格式错误".to_string())
+    // 保存配置
+    if let Err(e) = state.config.save_config() {
+        log::error!("删除项目后保存失败: {}", e);
+        return Err(format!("删除项目后保存失败: {}", e));
     }
+
+    log::info!("项目删除成功: ID={}", id);
+    Ok(())
 }
 
 // ========== 监控统计函数 ==========
@@ -1466,8 +1416,8 @@ fn get_recent_logs(state: State<'_, AppState>, count: usize) -> Result<Vec<Strin
 fn save_settings(
     state: State<'_, AppState>,
     grab_mode: u8,
-    delay_time: usize,
-    max_attempts: i32,
+    delay_time: u64,
+    max_attempts: u64,
     enable_push: bool,
     enabled_methods: Vec<String>,
     bark_token: String,
@@ -1491,13 +1441,11 @@ fn save_settings(
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
 
+    // Update AppState
     state.grab_mode = grab_mode;
-
-    state.status_delay = delay_time;
-
-    state.config["max_attempts"] = json!(max_attempts);
-    log::info!("最大尝试次数设置: {}", max_attempts);
-
+    state.status_delay = delay_time as usize;
+    state.custom_config.open_custom_ua = custom_ua;
+    state.custom_config.custom_ua = user_agent.clone();
     state.push_config.enabled = enable_push;
     state.push_config.enabled_methods = enabled_methods;
     state.push_config.bark_token = bark_token;
@@ -1505,10 +1453,8 @@ fn save_settings(
     state.push_config.fangtang_token = fangtang_token;
     state.push_config.dingtalk_token = dingtalk_token;
     state.push_config.wechat_token = wechat_token;
-
     state.push_config.gotify_config.gotify_url = gotify_url;
     state.push_config.gotify_config.gotify_token = gotify_token;
-
     state.push_config.smtp_config.smtp_server = smtp_server;
     state.push_config.smtp_config.smtp_port = smtp_port;
     state.push_config.smtp_config.smtp_username = smtp_username;
@@ -1516,13 +1462,16 @@ fn save_settings(
     state.push_config.smtp_config.smtp_from = smtp_from;
     state.push_config.smtp_config.smtp_to = smtp_to;
 
-    state.custom_config.open_custom_ua = custom_ua;
-    state.custom_config.custom_ua = user_agent.clone();
+    // Update the config struct
+    state.config.grab_mode = grab_mode;
+    state.config.delay_time = delay_time;
+    state.config.max_attempts = max_attempts;
+    state.config.push_config = state.push_config.clone();
+    state.config.custom_config = state.custom_config.clone();
 
     if custom_ua && !user_agent.is_empty() {
         state.default_ua = user_agent.clone();
-        let new_client = create_client(user_agent.clone());
-        state.client = new_client;
+        state.client = create_client(user_agent);
     }
 
     if let Err(e) = state.config.save_config() {

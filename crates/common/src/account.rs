@@ -1,7 +1,7 @@
 use crate::cookie_manager::CookieManager;
 use crate::{
     cookie_manager,
-    http_utils::{request_get_sync, request_post_sync},
+    http_utils::request_get_sync,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -154,7 +154,7 @@ impl Account {
 }
 
 // 创建client
-fn create_client_for_account(cookie: &str) -> reqwest::Client {
+fn create_client_for_account(_cookie: &str) -> reqwest::Client {
     use reqwest::header;
 
     let random_id = format!(

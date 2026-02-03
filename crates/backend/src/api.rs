@@ -501,7 +501,7 @@ pub async fn create_order(
         format!(
             "https://show.bilibili.com/api/ticket/order/createV2?project_id={}&ptoken={}",
             project_id,
-            ptoken.clone()
+            ptoken
         )
     };
 

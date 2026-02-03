@@ -7,8 +7,8 @@ use serde_json::Value;
 
 use crate::account::Account;
 use crate::cookie_manager::CookieManager;
-use crate::push::PushConfig;
-use crate::utility::CustomConfig;
+use config::PushConfig;
+use crate::config::{self, CustomConfig};
 
 //成功下单结构体
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -149,7 +149,7 @@ impl BilibiliTicket {
             }
         }
 
-        let client = match Client::builder()
+        let _client = match Client::builder()
             .cookie_store(true)
             .user_agent(ua)
             .default_headers(headers)

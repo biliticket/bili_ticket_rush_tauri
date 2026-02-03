@@ -7,7 +7,7 @@ pub mod record_log;
 pub mod show_orderlist;
 pub mod taskmanager;
 pub mod ticket;
-pub mod utility;
+pub mod config;
 pub mod utils;
 
 pub mod cookie_manager;

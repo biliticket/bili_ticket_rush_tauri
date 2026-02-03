@@ -2,12 +2,12 @@ use crate::account::Account;
 use crate::account::add_account;
 use crate::captcha::LocalCaptcha;
 use crate::captcha::captcha;
-use crate::http_utils::{request_get, request_get_sync, request_post};
-use crate::utility::CustomConfig;
+use crate::http_utils::{request_get, request_post};
+use crate::config::CustomConfig;
 use reqwest::Client;
 use serde_json::json;
 
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct LoginInput {
     pub phone: String,
     pub account: String,
@@ -63,7 +63,7 @@ pub fn qrcode_login(client: &Client) -> Result<String, String> {
         }
     })
 }
-pub fn password_login(username: &str, password: &str) -> Result<String, String> {
+pub fn password_login(_username: &str, _password: &str) -> Result<String, String> {
     Err("暂不支持账号密码登录".to_string())
 }
 

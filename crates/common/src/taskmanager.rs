@@ -1,9 +1,9 @@
 use crate::captcha::LocalCaptcha;
 use crate::cookie_manager::CookieManager;
-use crate::push::PushConfig;
+use config::PushConfig;
 use crate::show_orderlist::OrderResponse;
-use crate::ticket::*;
-use crate::utility::CustomConfig;
+use crate::{config, ticket::*};
+use crate::config::CustomConfig;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Instant;
@@ -330,11 +330,4 @@ pub trait TaskManager: Send + 'static {
 
     // 关闭任务管理器
     fn shutdown(&mut self);
-}
-
-pub const DISCLAIMER_TEXT_ENCODED: &str = "4p2X5pys6aG555uu5a6M5YWo5YWN6LS55byA5rqQ77yM56aB5q2i5ZWG55So5oiW5pS26LS577yM5LuF5L6b5a2m5Lmg5L2/55So77yM6K+35Zyo5LiL6L29MjTlsI/ml7blhoXliKDpmaTvvIzkvb/nlKjmnKzova/ku7bpgKDmiJDnmoTkuIDliIflkI7mnpzor7foh6rooYzmib/mi4U=";
-
-pub fn TaskManager_debug() -> String {
-    let bytes = base64::decode(DISCLAIMER_TEXT_ENCODED).unwrap_or_default();
-    String::from_utf8(bytes).unwrap_or_else(|_| "本项目免费开源".to_string())
 }
