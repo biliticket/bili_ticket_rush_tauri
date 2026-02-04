@@ -117,11 +117,7 @@ async function requestSmsCode() {
     showWarning("请输入手机号");
     return;
   }
-  const phoneRegex = /^1[3-9]\d{9}$/;
-  if (!phoneRegex.test(phoneNumber)) {
-    showWarning("请输入有效的手机号");
-    return;
-  }
+
 
   const sendSmsButton = document.getElementById("phone-login-send-sms-btn");
   sendSmsButton.disabled = true;
@@ -224,6 +220,8 @@ function initializeEventListeners() {
       e.preventDefault();
     });
   });
+
+  document.getElementById("grab-mode")?.addEventListener("change", updateSkipWordsVisibility);
 }
 
 
@@ -1276,6 +1274,13 @@ async function loadSettings() {
     document.getElementById("delay-time").value = state.status_delay || "2";
     document.getElementById("max-attempts").value =
       state.config?.max_attempts || "100";
+    
+    if (state.skip_words) {
+      document.getElementById("skip-words-input").value = state.skip_words.join(", ");
+    } else {
+      document.getElementById("skip-words-input").value = "";
+    }
+
 
     if (state.custom_config && state.custom_config.open_custom_ua) {
       document.getElementById("custom-ua").checked = true;
@@ -1328,6 +1333,7 @@ async function loadSettings() {
           state.push_config.gotify_config.gotify_token || "";
       }
     }
+    updateSkipWordsVisibility(); // Call after loading to set initial visibility
   } catch (error) {
     console.error("加载设置失败:", error);
   }
@@ -1352,6 +1358,9 @@ async function saveSettings() {
     const gotifyToken = document.getElementById("gotify-token").value;
     const customUa = document.getElementById("custom-ua").checked;
     const userAgent = document.getElementById("user-agent").value;
+    const skipWordsInput = document.getElementById("skip-words-input").value;
+    const skipWords = skipWordsInput.split(',').map(word => word.trim()).filter(word => word.length > 0);
+
 
     const enabledMethods = [];
     if (document.getElementById("push-method-bark").checked) {
@@ -1413,6 +1422,7 @@ async function saveSettings() {
       gotifyToken: gotifyToken,
       customUa: customUa,
       userAgent: userAgent,
+      skipWords: skipWords.length > 0 ? skipWords : null,
     });
 
     showSuccess("设置保存成功");
@@ -1740,6 +1750,14 @@ function updatePushSettingsVisibility() {
       settings.style.display = checkbox.checked ? "block" : "none";
     }
   });
+}
+
+function updateSkipWordsVisibility() {
+  const grabMode = document.getElementById("grab-mode").value;
+  const skipWordsSettings = document.getElementById("skip-words-settings");
+  if (skipWordsSettings) {
+    skipWordsSettings.style.display = (grabMode === "2") ? "flex" : "none";
+  }
 }
 
 function setupPushSettingsEventListeners() {

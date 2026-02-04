@@ -189,7 +189,7 @@ impl AppState {
             announce2: None,
             announce3: None,
             announce4: None,
-            skip_words: None,
+            skip_words: config.skip_words.clone(),
             skip_words_input: String::new(),
             config, // Store the whole config
         };
@@ -1213,7 +1213,7 @@ fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
         "show_add_buyer_window": state.show_add_buyer_window,
         "show_orderlist_window": state.show_orderlist_window,
         "show_qr_windows": state.show_qr_windows,
-        "skip_words_input": state.skip_words_input,
+        "skip_words": state.skip_words,
         "login_input": {
             "phone": state.login_input.phone,
             "account": state.login_input.account,
@@ -1433,6 +1433,7 @@ fn save_settings(
     gotify_token: String,
     custom_ua: bool,
     user_agent: String,
+    skip_words: Option<Vec<String>>,
 ) -> Result<(), String> {
     let mut state = state
         .inner
@@ -1453,6 +1454,7 @@ fn save_settings(
     state.push_config.wechat_token = wechat_token;
     state.push_config.gotify_config.gotify_url = gotify_url;
     state.push_config.gotify_config.gotify_token = gotify_token;
+    state.skip_words = skip_words.clone();
 
     // Update the config struct
     state.config.grab_mode = grab_mode;
@@ -1460,6 +1462,7 @@ fn save_settings(
     state.config.max_attempts = max_attempts;
     state.config.push_config = state.push_config.clone();
     state.config.custom_config = state.custom_config.clone();
+    state.config.skip_words = skip_words;
 
     if custom_ua && !user_agent.is_empty() {
         state.default_ua = user_agent.clone();

@@ -35,6 +35,8 @@ pub struct BtrConfig {
     pub max_attempts: u64,
     #[serde(default)]
     pub permissions: Value,
+    #[serde(default)]
+    pub skip_words: Option<Vec<String>>,
 }
 
 fn default_delay_time() -> u64 {
@@ -55,6 +57,7 @@ impl Default for BtrConfig {
             delay_time: default_delay_time(),
             max_attempts: default_max_attempts(),
             permissions: Value::Null,
+            skip_words: None,
         }
     }
 }

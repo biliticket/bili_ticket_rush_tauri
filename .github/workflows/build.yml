@@ -36,6 +36,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev pkg-config
       - name: Rust Cache
         uses: swatinem/rust-cache@v2      
+      - name: Install UPX on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y upx-ucl
+      - name: Install UPX on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install upx
+      - name: Install UPX on macOS
+        if: matrix.os == 'macos-latest'
+        run: brew install upx
       - name: Build Release
         if: matrix.debug == 'release'
         run: cargo build --verbose --release
@@ -53,6 +62,9 @@ jobs:
         run: |
           mkdir -p target/output
           cp target/${{matrix.debug}}/frontend target/output/${{ env.build_type }}-${{ matrix.build }}
+      - name: Compress artifacts with UPX
+        run: |
+          find target/output -type f -exec upx --best --lzma {} \; || true
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:

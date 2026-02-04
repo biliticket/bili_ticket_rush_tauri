@@ -114,7 +114,7 @@ pub async fn send_loginsms(
 
             let json_data = json!({
             "cid": 86,
-            "tel": phone.parse::<i64>().unwrap_or(0),
+            "tel": phone,
             "token": token,
             "source":"main_mini",
             "challenge": result["challenge"],
@@ -164,8 +164,8 @@ pub async fn sms_login(
 ) -> Result<String, String> {
     let data = serde_json::json!({
         "cid": 86,
-        "tel": phone.parse::<i64>().unwrap_or(0),
-        "code": sms_code.parse::<i64>().unwrap_or(0),
+        "tel": phone,
+        "code": sms_code,
         "source":"main_mini",
         "captcha_key":captcha_key,
     });
