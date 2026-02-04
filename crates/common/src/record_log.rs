@@ -133,7 +133,19 @@ impl GrabLogCollector {
     }
 }
 
-pub static LOG_COLLECTOR: Lazy<Arc<Mutex<LogCollector>>> = //?
+type LogListener = Box<dyn Fn(&str) + Send + Sync>;
+static LISTENERS: Lazy<Mutex<Vec<LogListener>>> = Lazy::new(|| Mutex::new(Vec::new()));
+
+pub fn add_log_listener<F>(f: F)
+where
+    F: Fn(&str) + Send + Sync + 'static,
+{
+    if let Ok(mut listeners) = LISTENERS.lock() {
+        listeners.push(Box::new(f));
+    }
+}
+
+pub static LOG_COLLECTOR: Lazy<Arc<Mutex<LogCollector>>> =
     Lazy::new(|| Arc::new(Mutex::new(LogCollector::new())));
 
 pub static GRAB_LOG_COLLECTOR: Lazy<Arc<Mutex<GrabLogCollector>>> = //?
@@ -187,6 +199,13 @@ impl log::Log for CollectorLogger {
             }
 
             println!("{}", log_message);
+
+            // 调用监听器
+            if let Ok(listeners) = LISTENERS.lock() {
+                for listener in listeners.iter() {
+                    listener(&log_message);
+                }
+            }
 
             // 单独处理文件写入，避免同时持有多个锁
             let _ = write_to_log_file(&log_message);

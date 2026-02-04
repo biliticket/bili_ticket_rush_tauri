@@ -15,8 +15,8 @@
             </div>
             <nav class="nav-tabs">
                 <a class="nav-tab active" data-tab="home">首页</a>
+                <a class="nav-tab" data-tab="grab">运行</a>
                 <a class="nav-tab" data-tab="projects">项目列表</a>
-                <a class="nav-tab" data-tab="grab">抢票</a>
                 <a class="nav-tab" data-tab="accounts">账号管理</a>
     
                 <a class="nav-tab" data-tab="settings">设置</a>
@@ -39,7 +39,7 @@
                         2. 在"项目列表"中选择要抢票的项目
                     </p>
                     <p class="quick-start-item">3. 在"设置"中配置抢票参数</p>
-                    <p class="quick-start-item">4. 在"抢票"页面开始抢票</p>
+                    <p class="quick-start-item">4. 在"运行"页面开始抢票</p>
                 </div>
                 <div class="card">
                     <h3 class="card-title">系统信息</h3>
@@ -66,13 +66,13 @@
 
             <div id="tab-grab" class="tab-content">
                 <div class="card">
-                    <h2 class="card-title">抢票操作</h2>
+                    <h2 class="card-title">操作控制</h2>
                     <div class="monitor-controls">
                         <button class="btn btn-success" id="start-grab-btn">
-                            开始抢票
+                            开始任务
                         </button>
                         <button class="btn btn-danger" id="stop-grab-btn">
-                            停止抢票
+                            停止任务
                         </button>
                     </div>
                     <div class="monitor-status-box">
@@ -83,16 +83,16 @@
                     </div>
                 </div>
                 <div class="card">
-                    <h2 class="card-title">抢票日志</h2>
+                    <h2 class="card-title">运行日志</h2>
                     <div class="monitor-controls">
                         <button
                             class="btn btn-primary"
                             id="refresh-grab-logs-btn"
                         >
-                            刷新抢票日志
+                            重载日志
                         </button>
                         <button class="btn btn-danger" id="clear-grab-logs-btn">
-                            清空抢票日志
+                            清空日志
                         </button>
                         <button class="btn btn-info" id="auto-scroll-btn">
                             自动滚动: 开启
@@ -570,28 +570,6 @@
                 </div>
             </div>
 
-            <div id="tab-logs" class="tab-content">
-                <div class="card">
-                    <h2 class="card-title">系统日志</h2>
-                    <div class="monitor-controls">
-                        <button class="btn btn-primary" id="load-logs-btn">
-                            刷新日志
-                        </button>
-                        <button class="btn btn-danger" id="clear-logs-btn">
-                            清空日志
-                        </button>
-                        <button class="btn btn-success" id="export-logs-btn">
-                            导出日志
-                        </button>
-                    </div>
-                    <div
-                        id="logs-container"
-                        class="log-container"
-                        style="margin-top: 16px"
-                    ></div>
-                </div>
-            </div>
-
             <div id="tab-help" class="tab-content">
                 <div class="card">
                     <h2 class="card-title">帮助与关于</h2>
@@ -619,8 +597,8 @@
                             </p>
                             <p>2. 在"项目列表"中选择要抢票的项目</p>
                             <p>3. 在"设置"中配置抢票参数和推送通知</p>
-                            <p>4. 在"监控"页面开始抢票并查看实时状态</p>
-                            <p>5. 在"日志"页面查看详细的运行日志</p>
+                            <p>4. 在"运行"页面开始抢票并查看实时状态</p>
+                            <p>5. 查看运行日志获取详细信息</p>
                         </div>
                     </div>
 

@@ -4,7 +4,7 @@ let smsCaptchaKey = null;
 let qrcodePollingInterval = null;
 let grabResultPollingInterval = null;
 let currentTaskId = null;
-let isGrabTaskRunning = false; // New global state variable
+let isGrabTaskRunning = false; 
 let monitorStats = {
   attempts: 0,
   success: 0,
@@ -15,7 +15,6 @@ function showAddAccountModal() {
   const modal = document.getElementById("add-account-modal");
   if (modal) {
     modal.classList.add("active");
-    // Default to qrcode
     switchLoginMethod("qrcode");
   } else {
     console.error("Add account modal not found");
@@ -23,7 +22,6 @@ function showAddAccountModal() {
 }
 
 function switchLoginMethod(method) {
-  // Update tabs
   document.querySelectorAll(".login-tab").forEach(tab => {
     if (tab.dataset.method === method) {
       tab.classList.add("active");
@@ -32,7 +30,6 @@ function switchLoginMethod(method) {
     }
   });
 
-  // Update content
   document.querySelectorAll(".login-method-content").forEach(content => {
     if (content.id === `method-${method}`) {
       content.classList.add("active");
@@ -41,19 +38,16 @@ function switchLoginMethod(method) {
     }
   });
 
-  // Specific logic per method
   if (method === "qrcode") {
     refreshQrcode();
   } else {
-    // Stop qrcode polling if switching away
     if (qrcodePollingInterval) {
-      clearInterval(qrcodePollingInterval);
+      clearTimeout(qrcodePollingInterval);
       qrcodePollingInterval = null;
     }
   }
   
   if (method !== "password") {
-    // Stop password polling if switching away
     if (passwordLoginPollingInterval) {
       clearInterval(passwordLoginPollingInterval);
       passwordLoginPollingInterval = null;
@@ -67,9 +61,8 @@ function closeAddAccountModal() {
     modal.classList.remove("active");
   }
 
-  // Stop any polling
   if (qrcodePollingInterval) {
-    clearInterval(qrcodePollingInterval);
+    clearTimeout(qrcodePollingInterval);
     qrcodePollingInterval = null;
   }
   if (passwordLoginPollingInterval) {
@@ -185,7 +178,6 @@ async function requestSmsCode() {
     showWarning("请输入手机号");
     return;
   }
-
 
   const sendSmsButton = document.getElementById("phone-login-send-sms-btn");
   sendSmsButton.disabled = true;
@@ -323,7 +315,6 @@ function initializeEventListeners() {
     }
   });
 
-  // Unified login tabs
   document.querySelectorAll(".login-tab").forEach((tab) => {
     const method = tab.getAttribute("data-method");
     if (method) {
@@ -361,9 +352,8 @@ function initializeEventListeners() {
   });
 
   document.getElementById("grab-mode")?.addEventListener("change", updateSkipWordsVisibility);
+  document.getElementById("enable-push")?.addEventListener("change", updatePushSettingsVisibility);
 }
-
-
 
 document.addEventListener("DOMContentLoaded", function () {
   console.log("DOM loaded, initializing application...");
@@ -371,7 +361,6 @@ document.addEventListener("DOMContentLoaded", function () {
   initializeTabSwitching();
   initializeEventListeners();
 
-  // Set initial button states
   document.getElementById("start-grab-btn").disabled = false;
   document.getElementById("stop-grab-btn").disabled = true;
 
@@ -381,25 +370,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function checkTauriAvailability() {
     attempts++;
-    console.log(
-      `Checking for Tauri API (attempt ${attempts}/${maxAttempts})...`,
-    );
+    console.log(`Checking for Tauri API (attempt ${attempts}/${maxAttempts})...`);
 
-    if (
-      window.__TAURI__ &&
-      window.__TAURI__.core &&
-      window.__TAURI__.core.invoke
-    ) {
+    if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
       console.log("Tauri API found!");
       initializeApp();
     } else if (attempts < maxAttempts) {
       setTimeout(checkTauriAvailability, checkInterval);
     } else {
-      console.log(
-        "Tauri API not available after " +
-          maxAttempts * checkInterval +
-          "ms, using basic UI",
-      );
+      console.log("Tauri API not available after " + maxAttempts * checkInterval + "ms, using basic UI");
       initializeBasicUI();
     }
   }
@@ -414,10 +393,37 @@ function initializeApp() {
     invoke = window.__TAURI__.core.invoke;
     console.log("invoke function loaded successfully");
 
+    if (window.__TAURI__.event && window.__TAURI__.event.listen) {
+      window.__TAURI__.event.listen('log-event', (event) => {
+        handleIncomingLog(event.payload);
+      });
+    }
+
     init();
   } catch (error) {
     console.error("Failed to initialize Tauri API:", error);
     initializeBasicUI();
+  }
+}
+
+function handleIncomingLog(log) {
+  if (!allLogs.includes(log)) {
+    allLogs.push(log);
+    if (allLogs.length > 5000) {
+      allLogs.shift();
+    }
+
+    const logCount = document.getElementById("log-count");
+    if (logCount) {
+      logCount.textContent = allLogs.length;
+    }
+
+    const grabTab = document.getElementById("tab-grab");
+    if (grabTab && grabTab.classList.contains("active")) {
+      updateLogsDisplay();
+    } else {
+      updateLogStats();
+    }
   }
 }
 
@@ -452,27 +458,25 @@ function initializeBasicUI() {
       document.getElementById("accounts-list").style.display = "block";
     };
 
-    loadLogs = function () {
-      console.log("loadLogs called (mock)");
-      document.getElementById("logs-container").innerHTML =
-        '<div class="log-entry">Tauri API not available - cannot load logs</div>';
+    loadInitialLogs = function () {
+      console.log("loadInitialLogs called (mock)");
+      const container = document.getElementById("grab-logs-container");
+      if (container) {
+        container.innerHTML = '<div class="log-entry">Tauri API not available - cannot load logs</div>';
+      }
     };
 
-    loadAccounts();
+    loadInitialLogs();
   }, 100);
 }
 
 function initializeTabSwitching() {
   const navTabs = document.querySelectorAll(".nav-tab");
-  console.log(`Found ${navTabs.length} nav tabs`);
-
   navTabs.forEach((tab) => {
     tab.style.cursor = "pointer";
-
     tab.onclick = function (e) {
       e.preventDefault();
       const tabName = this.dataset.tab;
-      console.log("Tab clicked:", tabName);
       switchTab(tabName);
       return false;
     };
@@ -484,63 +488,12 @@ function initializeTabSwitching() {
   }
 }
 
-function showAddAccountModal() {
-  const modal = document.getElementById("add-account-modal");
-  if (modal) {
-    modal.classList.add("active");
-    // Default to qrcode
-    switchLoginMethod("qrcode");
-  } else {
-    console.error("Add account modal not found");
-  }
-}
-
-function switchLoginMethod(method) {
-  // Update tabs
-  document.querySelectorAll(".login-tab").forEach(tab => {
-    if (tab.dataset.method === method) {
-      tab.classList.add("active");
-    } else {
-      tab.classList.remove("active");
-    }
-  });
-
-  // Update content
-  document.querySelectorAll(".login-method-content").forEach(content => {
-    if (content.id === `method-${method}`) {
-      content.classList.add("active");
-    } else {
-      content.classList.remove("active");
-    }
-  });
-
-  // Specific logic per method
-  if (method === "qrcode") {
-    refreshQrcode();
-  } else {
-    // Stop qrcode polling if switching away
-    if (qrcodePollingInterval) {
-      clearInterval(qrcodePollingInterval);
-      qrcodePollingInterval = null;
-    }
-  }
-  
-  if (method !== "password") {
-    // Stop password polling if switching away
-    if (passwordLoginPollingInterval) {
-      clearInterval(passwordLoginPollingInterval);
-      passwordLoginPollingInterval = null;
-    }
-  }
-}
-
 async function refreshQrcode() {
   try {
     if (!invoke) {
       throw new Error("Tauri invoke function not available");
     }
 
-    // Hide expired overlay if showing
     const overlay = document.getElementById("qrcode-expired-overlay");
     if (overlay) overlay.style.display = "none";
     
@@ -552,7 +505,6 @@ async function refreshQrcode() {
     if (qrcodeData && qrcodeData.url) {
       document.getElementById("qrcode-img").src = qrcodeData.url;
       if (statusText) statusText.textContent = "请使用B站APP扫描二维码登录";
-
       startQrcodePolling(qrcodeData.key);
     } else {
       throw new Error("无法生成二维码");
@@ -572,20 +524,19 @@ function handleQrcodeClick() {
 
 function startQrcodePolling(qrcodeKey) {
   if (qrcodePollingInterval) {
-    clearInterval(qrcodePollingInterval);
+    clearTimeout(qrcodePollingInterval);
+    qrcodePollingInterval = null;
   }
 
-  qrcodePollingInterval = setInterval(async () => {
+  const poll = async () => {
     try {
-      if (!invoke) {
-        throw new Error("Tauri invoke function not available");
-      }
+      if (!invoke) return;
 
       const result = await invoke("poll_qrcode_status", { key: qrcodeKey });
 
       if (result.status === "success") {
-        clearInterval(qrcodePollingInterval);
         qrcodePollingInterval = null;
+        closeAddAccountModal();
 
         if (result.cookie) {
           try {
@@ -599,29 +550,42 @@ function startQrcodePolling(qrcodeKey) {
           showSuccess("登录成功！");
         }
 
-        closeAddAccountModal();
         await reloadAccounts();
-      } else if (result.status === "expired") {
-        clearInterval(qrcodePollingInterval);
+        return;
+      } 
+      
+      if (result.status === "expired") {
         qrcodePollingInterval = null;
-        
-        // Show expired overlay
         const overlay = document.getElementById("qrcode-expired-overlay");
         if (overlay) overlay.style.display = "flex";
-        
         const statusText = document.getElementById("qrcode-status-text");
         if (statusText) statusText.textContent = "二维码已过期，请刷新";
-        
         showWarning("二维码已过期，请刷新二维码");
-      } else if (result.status === "error") {
-        clearInterval(qrcodePollingInterval);
-        qrcodePollingInterval = null;
-        showError("登录失败: " + result.message);
+        return;
       }
+
+      const overlay = document.getElementById("qrcode-expired-overlay");
+      if (overlay) overlay.style.display = "none";
+      
+      const statusText = document.getElementById("qrcode-status-text");
+      if (statusText) {
+        if (result.status === "scanning") {
+          statusText.textContent = "二维码已扫描，等待确认";
+        } else if (result.status === "confirming") {
+          statusText.textContent = "二维码已确认，正在登录";
+        } else {
+          statusText.textContent = "请使用B站APP扫描二维码登录";
+        }
+      }
+
+      qrcodePollingInterval = setTimeout(poll, 3000);
     } catch (error) {
       console.error("轮询二维码状态失败:", error);
+      qrcodePollingInterval = setTimeout(poll, 3000);
     }
-  }, 3000);
+  };
+
+  qrcodePollingInterval = setTimeout(poll, 3000);
 }
 
 function showAddProjectModal() {
@@ -636,9 +600,7 @@ async function submitAddAccount() {
   }
 
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
+    if (!invoke) throw new Error("Tauri invoke function not available");
     await invoke("add_account_by_cookie", { cookie });
     showSuccess("添加成功！");
     closeAddAccountModal();
@@ -658,20 +620,13 @@ async function submitAddProject() {
   }
 
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
     if (!/^\d+$/.test(projectId)) {
       showWarning("项目ID必须为数字");
       return;
     }
 
-    await invoke("add_project", {
-      id: projectId,
-      name: projectName,
-    });
-
+    await invoke("add_project", { id: projectId, name: projectName });
     showSuccess("添加项目成功！");
     closeAddProjectModal();
     await loadProjects();
@@ -685,10 +640,7 @@ async function loadAccounts() {
   const list = document.getElementById("accounts-list");
 
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
     const accounts = await invoke("get_accounts");
 
     loading.style.display = "none";
@@ -696,8 +648,7 @@ async function loadAccounts() {
     list.innerHTML = "";
 
     if (accounts.length === 0) {
-      list.innerHTML =
-        '<li style="padding: 20px; text-align: center; color: var(--text-secondary);">暂无账号</li>';
+      list.innerHTML = '<li style="padding: 20px; text-align: center; color: var(--text-secondary);">暂无账号</li>';
       return;
     }
 
@@ -731,9 +682,7 @@ async function loadAccounts() {
 
 async function toggleAccountActive(uid, active) {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
+    if (!invoke) throw new Error("Tauri invoke function not available");
     await invoke("set_account_active", { uid, active });
   } catch (error) {
     showError("更新账号状态失败: " + error);
@@ -742,18 +691,17 @@ async function toggleAccountActive(uid, active) {
 }
 
 async function reloadAccounts() {
-  document.getElementById("accounts-loading").style.display = "block";
-  document.getElementById("accounts-list").style.display = "none";
+  const loading = document.getElementById("accounts-loading");
+  if (loading) loading.style.display = "block";
+  const list = document.getElementById("accounts-list");
+  if (list) list.style.display = "none";
   await loadAccounts();
 }
 
 async function deleteAccount(uid) {
   if (!confirm("确定要删除此账号吗？")) return;
-
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
+    if (!invoke) throw new Error("Tauri invoke function not available");
     await invoke("delete_account_by_uid", { uid });
     await loadAccounts();
   } catch (error) {
@@ -766,10 +714,7 @@ async function loadProjects() {
   const list = document.getElementById("projects-list");
 
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
     const projects = await invoke("get_projects");
 
     loading.style.display = "none";
@@ -777,8 +722,7 @@ async function loadProjects() {
     list.innerHTML = "";
 
     if (!projects || projects.length === 0) {
-      list.innerHTML =
-        '<div style="padding: 40px; text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">暂无项目</div>';
+      list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">暂无项目</div>';
       return;
     }
 
@@ -816,31 +760,17 @@ async function refreshProjects() {
 
 async function selectProject(projectId) {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
     await invoke("set_ticket_id", { ticketId: projectId });
-
     const accounts = await invoke("get_accounts");
     const activeAccount = accounts.find((a) => a.is_active);
-
     if (!activeAccount) {
       showWarning("请先激活一个账号");
       return;
     }
-
     showScreenTicketModal();
-
-    const taskId = await invoke("get_ticket_info", {
-      uid: activeAccount.uid,
-      projectId: projectId,
-    });
-
-    console.log("获取项目详情任务ID:", taskId);
-
+    const taskId = await invoke("get_ticket_info", { uid: activeAccount.uid, projectId: projectId });
     const ticketInfo = await pollForTicketInfo(taskId);
-
     showScreenTicketSelector(ticketInfo);
   } catch (error) {
     showError("选择项目失败: " + error);
@@ -850,29 +780,23 @@ async function selectProject(projectId) {
 
 async function pollForTicketInfo(taskId) {
   const maxAttempts = 30;
-
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const results = await invoke("poll_task_results");
-
       const result = results.find((r) => r.type === "GetTicketInfoResult");
-
       if (result) {
         if (result.success && result.ticket_info) {
-          console.log("项目详情获取成功:", result.ticket_info);
           return result.ticket_info.data;
         } else if (!result.success) {
           throw new Error(result.message || "获取项目详情失败");
         }
       }
-
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {
       console.error("轮询错误:", error);
       throw error;
     }
   }
-
   throw new Error("获取项目详情超时");
 }
 
@@ -880,218 +804,89 @@ function showScreenTicketModal() {
   const modal = document.getElementById("screen-ticket-modal");
   const loading = document.getElementById("screen-ticket-loading");
   const selector = document.getElementById("screen-ticket-selector");
-
   modal.classList.add("active");
   loading.style.display = "block";
   selector.style.display = "none";
-
-  // 隐藏购票人类型选择框
-  const buyerTypeGroup = document.querySelector(
-    ".form-group:has(#buyer-type-select)",
-  );
-  if (buyerTypeGroup) {
-    buyerTypeGroup.style.display = "none";
-  }
 }
 
 function closeScreenTicketModal() {
   const modal = document.getElementById("screen-ticket-modal");
-  const loading = document.getElementById("screen-ticket-loading");
-  const selector = document.getElementById("screen-ticket-selector");
-
   modal.classList.remove("active");
-
-  loading.style.display = "block";
-
-  selector.style.display = "none";
   document.getElementById("screen-select").innerHTML = "";
   document.getElementById("ticket-select").innerHTML = "";
-
   document.getElementById("buyer-list").innerHTML = "";
-  document.getElementById("buyer-list").style.display = "none";
-  document.getElementById("buyer-loading").style.display = "none";
-  document.getElementById("buyer-error").style.display = "none";
-
   document.getElementById("no-bind-name").value = "";
   document.getElementById("no-bind-tel").value = "";
-
-  // 显示购票人类型选择框（下次打开时重新隐藏）
-  const buyerTypeGroup = document.querySelector(
-    ".form-group:has(#buyer-type-select)",
-  );
-  if (buyerTypeGroup) {
-    buyerTypeGroup.style.display = "block";
-  }
 }
 
 async function showScreenTicketSelector(ticketInfo) {
   const loading = document.getElementById("screen-ticket-loading");
   const selector = document.getElementById("screen-ticket-selector");
   const screenSelect = document.getElementById("screen-select");
-  const ticketSelect = document.getElementById("ticket-select");
 
   loading.style.display = "none";
   selector.style.display = "block";
 
-  const availableScreens = ticketInfo.screen_list.filter(
-    (s) => s.clickable !== false,
-  );
-
+  const availableScreens = ticketInfo.screen_list.filter((s) => s.clickable !== false);
   if (availableScreens.length === 0) {
     showWarning("暂无可选场次");
     closeScreenTicketModal();
     return;
   }
 
-  screenSelect.innerHTML = availableScreens
-    .map(
-      (s) =>
-        `<option value="${s.id}">${s.name} (${new Date(s.start_time * 1000).toLocaleString()})</option>`,
-    )
-    .join("");
-
+  screenSelect.innerHTML = availableScreens.map(s => `<option value="${s.id}">${s.name} (${new Date(s.start_time * 1000).toLocaleString()})</option>`).join("");
   window.currentTicketInfo = ticketInfo;
-
-  screenSelect.onchange = function () {
-    updateTicketList(parseInt(this.value));
-  };
-
+  screenSelect.onchange = function () { updateTicketList(parseInt(this.value)); };
   updateTicketList(availableScreens[0].id);
 
   const idBind = ticketInfo.id_bind;
-  console.log("项目实名制类型 id_bind:", idBind);
-
   const realNameSection = document.getElementById("real-name-buyer-section");
-  const nonRealNameSection = document.getElementById(
-    "non-real-name-buyer-section",
-  );
+  const nonRealNameSection = document.getElementById("non-real-name-buyer-section");
 
   if (idBind === 0) {
     realNameSection.style.display = "none";
     nonRealNameSection.style.display = "block";
-    showNotification("当前项目为非强实名制，请填写姓名和手机号", "info", 5000);
-  } else if (idBind === 1 || idBind === 2) {
-    realNameSection.style.display = "block";
-    nonRealNameSection.style.display = "none";
-    showNotification("当前项目为强实名制，请从购票人列表中选择", "info", 5000);
   } else {
     realNameSection.style.display = "block";
     nonRealNameSection.style.display = "none";
-    console.warn("未知的实名制类型 id_bind:", idBind);
   }
-
   await loadBuyerInfo();
 }
 
 function updateTicketList(screenId) {
   const ticketSelect = document.getElementById("ticket-select");
   const ticketInfo = window.currentTicketInfo;
-
   if (!ticketInfo) return;
-
   const selectedScreen = ticketInfo.screen_list.find((s) => s.id === screenId);
-
   if (!selectedScreen || !selectedScreen.ticket_list) {
     ticketSelect.innerHTML = '<option value="">暂无票种</option>';
     return;
   }
-
-  ticketSelect.innerHTML = selectedScreen.ticket_list
-    .map((t) => {
+  ticketSelect.innerHTML = selectedScreen.ticket_list.map((t) => {
       const price = (t.price / 100).toFixed(2);
-      const status =
-        t.sale_type === 1 ? "可售" : t.sale_type === 2 ? "售罄" : "未开售";
+      const status = t.sale_type === 1 ? "可售" : t.sale_type === 2 ? "售罄" : "未开售";
       return `<option value="${t.id}">${t.desc} - ¥${price} [${status}]</option>`;
-    })
-    .join("");
+  }).join("");
 }
 
 async function confirmScreenTicketSelection() {
   try {
     const screenId = parseInt(document.getElementById("screen-select").value);
     const ticketId = parseInt(document.getElementById("ticket-select").value);
-
     if (!screenId || !ticketId) {
       showWarning("请选择场次和票种");
       return;
     }
-
-    // 购票等级需求判定
-    const ticketInfo = window.currentTicketInfo;
-    if (ticketInfo) {
-      const selectedScreen = ticketInfo.screen_list.find(s => s.id === screenId);
-      if (selectedScreen) {
-        const selectedTicket = selectedScreen.ticket_list.find(t => t.id === ticketId);
-        if (selectedTicket && selectedTicket.less_lv > 0) {
-          const accounts = await invoke("get_accounts");
-          const activeAccount = accounts.find(a => a.is_active);
-          
-          if (activeAccount) {
-            const userLevel = parseInt(activeAccount.level);
-            if (userLevel < selectedTicket.less_lv) {
-              showError(`该票种需要等级 LV${selectedTicket.less_lv}，当前账号等级为 LV${userLevel}`);
-              closeScreenTicketModal();
-              return;
-            }
-          }
-        }
-      }
-    }
-
-    // 根据当前显示的购票人部分确定购票人类型
     const realNameSection = document.getElementById("real-name-buyer-section");
-    const nonRealNameSection = document.getElementById(
-      "non-real-name-buyer-section",
-    );
-
-    let buyerType = "";
-    if (realNameSection.style.display !== "none") {
-      buyerType = "1";
-    } else if (nonRealNameSection.style.display !== "none") {
-      buyerType = "0";
-    } else {
-      showWarning("无法确定购票人类型");
-      return;
-    }
+    const nonRealNameSection = document.getElementById("non-real-name-buyer-section");
+    let buyerType = realNameSection.style.display !== "none" ? "1" : "0";
 
     if (buyerType === "1") {
       const selectedBuyers = getSelectedBuyers();
-      console.log("选中的购票人数据:", JSON.stringify(selectedBuyers, null, 2));
-      console.log("购票人数量:", selectedBuyers.length);
-
       if (selectedBuyers.length === 0) {
         showWarning("请至少选择一个购票人");
         return;
       }
-    } else if (buyerType === "0") {
-      const name = document.getElementById("no-bind-name").value.trim();
-      const tel = document.getElementById("no-bind-tel").value.trim();
-
-      if (!name || !tel) {
-        showWarning("请填写非实名购票人的姓名和手机号");
-        return;
-      }
-
-      // 验证手机号格式
-      const phoneRegex = /^1[3-9]\d{9}$/;
-      if (!phoneRegex.test(tel)) {
-        showWarning("请输入有效的手机号");
-        return;
-      }
-    }
-
-    await invoke("set_selected_screen", {
-      index: null,
-      id: screenId,
-    });
-    await invoke("set_selected_ticket", {
-      id: ticketId,
-    });
-
-    await invoke("set_buyer_type", { buyerType: parseInt(buyerType) });
-
-    if (buyerType === "1") {
-      const selectedBuyers = getSelectedBuyers();
       const validatedBuyers = selectedBuyers.map((buyer) => ({
         id: Number(buyer.id),
         uid: Number(buyer.uid) || 0,
@@ -1103,79 +898,27 @@ async function confirmScreenTicketSelection() {
         id_card_front: String(buyer.id_card_front || ""),
         id_card_back: String(buyer.id_card_back || ""),
       }));
-
-      console.log(
-        "验证后的实名购票人数据:",
-        JSON.stringify(validatedBuyers, null, 2),
-      );
-
       await invoke("set_selected_buyer_list", { buyerList: validatedBuyers });
-
       await invoke("clear_no_bind_buyer_info");
-
-      console.log(
-        "已设置场次:",
-        screenId,
-        "票种:",
-        ticketId,
-        "实名购票人数量:",
-        validatedBuyers.length,
-      );
-    } else if (buyerType === "0") {
+    } else {
       const name = document.getElementById("no-bind-name").value.trim();
       const tel = document.getElementById("no-bind-tel").value.trim();
-
-      console.log("非实名购票人信息:", { name, tel });
-
+      if (!name || !tel) {
+        showWarning("请填写姓名和手机号");
+        return;
+      }
       await invoke("set_no_bind_buyer_info", { name, tel });
-
       await invoke("set_selected_buyer_list", { buyerList: null });
-
-      console.log(
-        "已设置场次:",
-        screenId,
-        "票种:",
-        ticketId,
-        "非实名购票人:",
-        name,
-      );
     }
+
+    await invoke("set_selected_screen", { index: null, id: screenId });
+    await invoke("set_selected_ticket", { id: ticketId });
+    await invoke("set_buyer_type", { buyerType: parseInt(buyerType) });
 
     showSuccess("设置成功");
     closeScreenTicketModal();
   } catch (error) {
-    console.error("确认选择失败:", error);
     showError("设置失败: " + error);
-  }
-}
-
-function onBuyerTypeChange() {
-  // 此函数现在不再需要，因为购票人类型选择框已隐藏
-  // 保留函数定义以避免调用错误
-}
-
-async function saveNoBindBuyerInfo() {
-  try {
-    const name = document.getElementById("no-bind-name").value.trim();
-    const tel = document.getElementById("no-bind-tel").value.trim();
-
-    if (!name || !tel) {
-      showError("请填写姓名和手机号");
-      return;
-    }
-
-    const phoneRegex = /^1[3-9]\d{9}$/;
-    if (!phoneRegex.test(tel)) {
-      showError("请输入有效的手机号");
-      return;
-    }
-
-    await invoke("set_no_bind_buyer_info", { name, tel });
-
-    showSuccess("非实名购票人信息保存成功！");
-  } catch (error) {
-    console.error("保存非实名购票人信息失败:", error);
-    showError("保存失败: " + error);
   }
 }
 
@@ -1183,36 +926,19 @@ async function loadBuyerInfo() {
   const buyerLoading = document.getElementById("buyer-loading");
   const buyerList = document.getElementById("buyer-list");
   const buyerError = document.getElementById("buyer-error");
-
   try {
     buyerLoading.style.display = "block";
     buyerList.style.display = "none";
     buyerError.style.display = "none";
-
     const accounts = await invoke("get_accounts");
     const activeAccount = accounts.find((a) => a.is_active);
-
-    if (!activeAccount) {
-      throw new Error("请先激活一个账号");
-    }
-
-    const taskId = await invoke("get_buyer_info", {
-      uid: activeAccount.uid,
-    });
-
-    if (!taskId || taskId.trim() === "") {
-      throw new Error("获取任务ID失败，返回空值");
-    }
-
+    if (!activeAccount) throw new Error("请先激活一个账号");
+    const taskId = await invoke("get_buyer_info", { uid: activeAccount.uid });
     const buyerInfo = await pollForBuyerInfo(taskId);
-
     displayBuyerList(buyerInfo);
-
     buyerLoading.style.display = "none";
     buyerList.style.display = "block";
   } catch (error) {
-    console.error("加载购票人信息失败:", error);
-    console.error("错误堆栈:", error.stack);
     buyerLoading.style.display = "none";
     buyerError.style.display = "block";
     buyerError.textContent = "加载购票人失败: " + error.message;
@@ -1223,15 +949,10 @@ async function pollForBuyerInfo(taskId) {
   const maxAttempts = 30;
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((resolve) => setTimeout(resolve, 500));
-
     const results = await invoke("poll_task_results");
-
     const result = results.find((r) => r.task_id === taskId);
-
     if (result) {
-      if (!result.success) {
-        throw new Error(result.message || "获取购票人信息失败");
-      }
+      if (!result.success) throw new Error(result.message || "获取购票人信息失败");
       return result.buyer_info;
     }
   }
@@ -1240,795 +961,298 @@ async function pollForBuyerInfo(taskId) {
 
 function displayBuyerList(buyerInfo) {
   const buyerList = document.getElementById("buyer-list");
-
-  if (
-    !buyerInfo ||
-    !buyerInfo.data ||
-    !buyerInfo.data.list ||
-    buyerInfo.data.list.length === 0
-  ) {
-    buyerList.innerHTML =
-      '<p style="color: #888; padding: 10px;">暂无购票人，请先在账号页面添加</p>';
+  if (!buyerInfo || !buyerInfo.data || !buyerInfo.data.list || buyerInfo.data.list.length === 0) {
+    buyerList.innerHTML = '<p style="color: #888; padding: 10px;">暂无购票人</p>';
     return;
   }
-
-  const buyers = buyerInfo.data.list;
-
-  buyerList.innerHTML = buyers
-    .map(
-      (buyer) => `
+  buyerList.innerHTML = buyerInfo.data.list.map(buyer => `
         <div class="buyer-item" style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee;">
-          <input
-            type="checkbox"
-            id="buyer-${buyer.id}"
-            value="${buyer.id}"
-            data-buyer='${encodeURIComponent(JSON.stringify(buyer))}'
-            style="margin-right: 10px;"
-          />
-          <label for="buyer-${buyer.id}" style="flex: 1; cursor: pointer;">
-            <strong>${buyer.name}</strong> - ${buyer.tel}
-            ${buyer.is_default === 1 ? '<span style="color: #4CAF50; margin-left: 10px;">(默认)</span>' : ""}
-          </label>
+          <input type="checkbox" id="buyer-${buyer.id}" value="${buyer.id}" data-buyer='${encodeURIComponent(JSON.stringify(buyer))}' style="margin-right: 10px;" />
+          <label for="buyer-${buyer.id}" style="flex: 1; cursor: pointer;"><strong>${buyer.name}</strong> - ${buyer.tel}</label>
         </div>
-      `,
-    )
-    .join("");
-
-  if (buyers.length > 0) {
-    const firstCheckbox = document.getElementById(`buyer-${buyers[0].id}`);
-    if (firstCheckbox) {
-      firstCheckbox.checked = true;
-    }
-  }
+      `).join("");
 }
 
 function getSelectedBuyers() {
-  const checkboxes = document.querySelectorAll(
-    '#buyer-list input[type="checkbox"]:checked',
-  );
+  const checkboxes = document.querySelectorAll('#buyer-list input[type="checkbox"]:checked');
   const selectedBuyers = [];
-
-  console.log("找到选中的复选框数量:", checkboxes.length);
-
-  checkboxes.forEach((checkbox, index) => {
+  checkboxes.forEach((checkbox) => {
     try {
-      const buyerJson = checkbox.getAttribute("data-buyer");
-      console.log(`复选框 ${index + 1} 的原始数据:`, buyerJson);
-
-      if (!buyerJson) {
-        console.warn(`复选框 ${index + 1} 没有 data-buyer 属性`);
-        return;
-      }
-
-      const decodedJson = decodeURIComponent(buyerJson);
-      const buyerData = JSON.parse(decodedJson);
-      console.log(`解析后的购票人 ${index + 1}:`, buyerData);
-
-      if (!buyerData.id || !buyerData.name || !buyerData.tel) {
-        console.warn(`购票人 ${index + 1} 缺少必需字段:`, buyerData);
-      }
-
+      const buyerData = JSON.parse(decodeURIComponent(checkbox.getAttribute("data-buyer")));
       selectedBuyers.push(buyerData);
-    } catch (e) {
-      console.error("解析购票人数据失败:", e);
-      console.error("原始数据:", buyerJson);
-      console.error("解码后数据:", decodedJson || "undefined");
-    }
+    } catch (e) { console.error("解析购票人数据失败:", e); }
   });
-
-  console.log("最终选中的购票人数组:", selectedBuyers);
   return selectedBuyers;
 }
 
 async function deleteProject(projectId) {
   if (!confirm("确定要删除此项目吗？")) return;
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
     await invoke("delete_project", { id: projectId });
     showSuccess("删除项目成功");
     await loadProjects();
-  } catch (error) {
-    showError("删除失败: " + error);
-  }
+  } catch (error) { showError("删除失败: " + error); }
 }
 
 async function startGrab() {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
-    if (isGrabTaskRunning) {
-        showWarning("抢票任务已在运行中，请勿重复启动。");
-        return;
-    }
-
-    if (grabResultPollingInterval) {
-        clearInterval(grabResultPollingInterval);
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
+    if (isGrabTaskRunning) { showWarning("任务已在运行"); return; }
     isGrabTaskRunning = true;
     document.getElementById("start-grab-btn").disabled = true;
     document.getElementById("stop-grab-btn").disabled = false;
-
-    try {
-        const state = await invoke("get_state");
-        const configuredGrabMode = state.grab_mode;
-
-        await invoke("set_grab_mode", { mode: configuredGrabMode });
-        const taskId = await invoke("start_grab_ticket");
-
-        currentTaskId = taskId;
-
-        document.getElementById("monitor-status").textContent = "运行中";
-        document.getElementById("monitor-status").style.color =
-        "var(--success-color)";
-
-        showSuccess("开始抢票! 任务ID: " + taskId);
-
+    const state = await invoke("get_state");
+    await invoke("set_grab_mode", { mode: state.grab_mode });
+    const taskId = await invoke("start_grab_ticket");
+    currentTaskId = taskId;
+    document.getElementById("monitor-status").textContent = "运行中";
+    document.getElementById("monitor-status").style.color = "var(--success-color)";
+    showSuccess("开始抢票! 任务ID: " + taskId);
     grabResultPollingInterval = setInterval(async () => {
         try {
             const results = await invoke("poll_task_results");
-
-            // Check for success result
-            const successResult = results.find(r => 
-                r.type === "GrabTicketResult" && 
-                r.success === true &&
-                r.task_id === currentTaskId
-            );
-
-            if (successResult) {
-                console.log("Grab ticket success!", successResult);
-                showGrabSuccessModal(successResult);
-                stopGrab(); // This will also clear the interval and reset buttons
-                return;
-            }
-
-            const pendingPaymentResult = results.find(r =>
-                r.type === "GrabTicketResult" &&
-                r.success === false &&
-                r.task_id === currentTaskId &&
-                r.message.includes("购票人存在待付款订单")
-            );
-
-            if (pendingPaymentResult) {
-                console.error("Pending payment order found:", pendingPaymentResult.message);
-                showError(pendingPaymentResult.message);
-                stopGrab();
-                return;
-            }
-
-        } catch (pollError) {
-            console.error("Error polling for task results:", pollError);
-        }
+            const successResult = results.find(r => r.type === "GrabTicketResult" && r.success === true && r.task_id === currentTaskId);
+            if (successResult) { showGrabSuccessModal(successResult); stopGrab(); return; }
+            const pendingPaymentResult = results.find(r => r.type === "GrabTicketResult" && r.success === false && r.task_id === currentTaskId && r.message.includes("待付款订单"));
+            if (pendingPaymentResult) { showError(pendingPaymentResult.message); stopGrab(); return; }
+        } catch (pollError) { console.error("轮询错误:", pollError); }
     }, 2000);
-    } catch (error) {
-        isGrabTaskRunning = false;
-        document.getElementById("start-grab-btn").disabled = false;
-        document.getElementById("stop-grab-btn").disabled = true;
-        throw error;
-    }
-
   } catch (error) {
-    console.error("启动抢票失败:", error);
+    isGrabTaskRunning = false;
+    document.getElementById("start-grab-btn").disabled = false;
+    document.getElementById("stop-grab-btn").disabled = true;
     showError("启动失败: " + error);
   }
 }
 
 async function stopGrab() {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
-    if (grabResultPollingInterval) {
-        clearInterval(grabResultPollingInterval);
-        grabResultPollingInterval = null;
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
+    if (grabResultPollingInterval) { clearInterval(grabResultPollingInterval); grabResultPollingInterval = null; }
     if (currentTaskId) {
-      try {
-        await invoke("cancel_task", { taskId: currentTaskId });
-        showSuccess("已取消抢票任务: " + currentTaskId);
-      } catch (cancelError) {
-        console.warn("取消任务失败:", cancelError);
-        showWarning("取消任务失败，但已停止抢票模式: " + cancelError);
-      }
+      await invoke("cancel_task", { taskId: currentTaskId });
       currentTaskId = null;
     }
-
     await invoke("set_grab_mode", { mode: 0 });
     document.getElementById("monitor-status").textContent = "已停止";
-    document.getElementById("monitor-status").style.color =
-      "var(--error-color)";
-
+    document.getElementById("monitor-status").style.color = "var(--error-color)";
     isGrabTaskRunning = false;
     document.getElementById("start-grab-btn").disabled = false;
     document.getElementById("stop-grab-btn").disabled = true;
-
-  } catch (error) {
-    showError("停止失败: " + error);
-  }
+  } catch (error) { showError("停止失败: " + error); }
 }
 
 async function loadSettings() {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
+    if (!invoke) throw new Error("Tauri invoke function not available");
     const state = await invoke("get_state");
     document.getElementById("grab-mode").value = state.grab_mode || "0";
     document.getElementById("delay-time").value = state.status_delay || "2";
-    document.getElementById("max-attempts").value =
-      state.config?.max_attempts || "100";
-    
-    if (state.skip_words) {
-      document.getElementById("skip-words-input").value = state.skip_words.join(", ");
-    } else {
-      document.getElementById("skip-words-input").value = "";
-    }
-
-
-    if (state.custom_config && state.custom_config.open_custom_ua) {
-      document.getElementById("custom-ua").checked = true;
-      document.getElementById("user-agent").value =
-        state.custom_config.custom_ua || "";
-    }
-
+    document.getElementById("max-attempts").value = state.config?.max_attempts || "100";
+    document.getElementById("skip-words-input").value = state.skip_words ? state.skip_words.join(", ") : "";
     if (state.push_config) {
-      document.getElementById("enable-push").checked =
-        state.push_config.enabled || false;
-      document.getElementById("bark-token").value =
-        state.push_config.bark_token || "";
-      document.getElementById("pushplus-token").value =
-        state.push_config.pushplus_token || "";
-      document.getElementById("fangtang-token").value =
-        state.push_config.fangtang_token || "";
-      document.getElementById("dingtalk-token").value =
-        state.push_config.dingtalk_token || "";
-      document.getElementById("wechat-token").value =
-        state.push_config.wechat_token || "";
-
+      document.getElementById("enable-push").checked = state.push_config.enabled || false;
+      document.getElementById("bark-token").value = state.push_config.bark_token || "";
+      document.getElementById("pushplus-token").value = state.push_config.pushplus_token || "";
+      document.getElementById("fangtang-token").value = state.push_config.fangtang_token || "";
+      document.getElementById("dingtalk-token").value = state.push_config.dingtalk_token || "";
+      document.getElementById("wechat-token").value = state.push_config.wechat_token || "";
       if (state.push_config.enabled_methods) {
-        document.getElementById("push-method-bark").checked =
-          state.push_config.enabled_methods.includes("bark");
-        document.getElementById("push-method-pushplus").checked =
-          state.push_config.enabled_methods.includes("pushplus");
-        document.getElementById("push-method-fangtang").checked =
-          state.push_config.enabled_methods.includes("fangtang");
-        document.getElementById("push-method-dingtalk").checked =
-          state.push_config.enabled_methods.includes("dingtalk");
-        document.getElementById("push-method-wechat").checked =
-          state.push_config.enabled_methods.includes("wechat");
-        document.getElementById("push-method-gotify").checked =
-          state.push_config.enabled_methods.includes("gotify");
-      } else {
-        document.getElementById("push-method-bark").checked = false;
-        document.getElementById("push-method-pushplus").checked = false;
-        document.getElementById("push-method-fangtang").checked = false;
-        document.getElementById("push-method-dingtalk").checked = false;
-        document.getElementById("push-method-wechat").checked = false;
-        document.getElementById("push-method-gotify").checked = false;
+        ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"].forEach(m => {
+          const el = document.getElementById(`push-method-${m}`);
+          if (el) el.checked = state.push_config.enabled_methods.includes(m);
+        });
       }
-
-      updatePushSettingsVisibility();
-
       if (state.push_config.gotify_config) {
-        document.getElementById("gotify-url").value =
-          state.push_config.gotify_config.gotify_url || "";
-        document.getElementById("gotify-token").value =
-          state.push_config.gotify_config.gotify_token || "";
+        document.getElementById("gotify-url").value = state.push_config.gotify_config.gotify_url || "";
+        document.getElementById("gotify-token").value = state.push_config.gotify_config.gotify_token || "";
       }
     }
-    updateSkipWordsVisibility(); // Call after loading to set initial visibility
-  } catch (error) {
-    console.error("加载设置失败:", error);
-  }
+    updatePushSettingsVisibility();
+    updateSkipWordsVisibility();
+  } catch (error) { console.error("加载设置失败:", error); }
+}
+
+function updatePushSettingsVisibility() {
+  const pushEnabled = document.getElementById("enable-push").checked;
+  const methods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"];
+  methods.forEach(m => {
+    const el = document.getElementById(`${m}-settings`);
+    if (el) el.style.display = pushEnabled ? "block" : "none";
+  });
+}
+
+function updateSkipWordsVisibility() {
+  const mode = document.getElementById("grab-mode").value;
+  const container = document.getElementById("skip-words-settings");
+  if (container) container.style.display = (mode === "3") ? "block" : "none";
 }
 
 async function saveSettings() {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
-    const grabMode = document.getElementById("grab-mode").value;
-    const delayTime = document.getElementById("delay-time").value;
-    const maxAttempts = document.getElementById("max-attempts").value;
+    if (!invoke) throw new Error("Tauri invoke function not available");
+    const grabMode = parseInt(document.getElementById("grab-mode").value);
+    const delayTime = parseInt(document.getElementById("delay-time").value);
+    const maxAttempts = parseInt(document.getElementById("max-attempts").value);
     const enablePush = document.getElementById("enable-push").checked;
-    const barkToken = document.getElementById("bark-token").value;
-    const pushplusToken = document.getElementById("pushplus-token").value;
-    const fangtangToken = document.getElementById("fangtang-token").value;
-    const dingtalkToken = document.getElementById("dingtalk-token").value;
-    const wechatToken = document.getElementById("wechat-token").value;
-    const gotifyUrl = document.getElementById("gotify-url").value;
-    const gotifyToken = document.getElementById("gotify-token").value;
-    const customUa = document.getElementById("custom-ua").checked;
-    const userAgent = document.getElementById("user-agent").value;
-    const skipWordsInput = document.getElementById("skip-words-input").value;
-    const skipWords = skipWordsInput.split(',').map(word => word.trim()).filter(word => word.length > 0);
-
-
-    const enabledMethods = [];
-    if (document.getElementById("push-method-bark").checked) {
-      enabledMethods.push("bark");
-    }
-    if (document.getElementById("push-method-pushplus").checked) {
-      enabledMethods.push("pushplus");
-    }
-    if (document.getElementById("push-method-fangtang").checked) {
-      enabledMethods.push("fangtang");
-    }
-    if (document.getElementById("push-method-dingtalk").checked) {
-      enabledMethods.push("dingtalk");
-    }
-    if (document.getElementById("push-method-wechat").checked) {
-      enabledMethods.push("wechat");
-    }
-    if (document.getElementById("push-method-gotify").checked) {
-      enabledMethods.push("gotify");
-    }
-
-    if (enablePush && enabledMethods.length === 0) {
-      showError("启用推送时，必须至少选择一个推送渠道");
-      return;
-    }
-
-    if (delayTime < 1 || delayTime > 10) {
-      showError("延迟时间必须在1-10秒之间");
-      return;
-    }
-
-    if (maxAttempts < 1 || maxAttempts > 1000) {
-      showError("最大尝试次数必须在1-1000之间");
-      return;
-    }
-
-    if (gotifyUrl && !gotifyUrl.startsWith("http")) {
-      showError("Gotify URL必须以http://或https://开头");
-      return;
-    }
-
-    if (customUa && !userAgent.trim()) {
-      showError("启用自定义User-Agent时，必须填写User-Agent");
-      return;
-    }
+    const skipWords = document.getElementById("skip-words-input").value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+    
+    const enabledMethods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"].filter(m => document.getElementById(`push-method-${m}`)?.checked);
 
     await invoke("save_settings", {
-      grabMode: parseInt(grabMode),
-      delayTime: parseInt(delayTime),
-      maxAttempts: parseInt(maxAttempts),
-      enablePush: enablePush,
-      enabledMethods: enabledMethods,
-      barkToken: barkToken,
-      pushplusToken: pushplusToken,
-      fangtangToken: fangtangToken,
-      dingtalkToken: dingtalkToken,
-      wechatToken: wechatToken,
-      gotifyUrl: gotifyUrl,
-      gotifyToken: gotifyToken,
-      customUa: customUa,
-      userAgent: userAgent,
-      skipWords: skipWords.length > 0 ? skipWords : null,
+      grabMode, delayTime, maxAttempts, enablePush, enabledMethods,
+      barkToken: document.getElementById("bark-token").value,
+      pushplusToken: document.getElementById("pushplus-token").value,
+      fangtangToken: document.getElementById("fangtang-token").value,
+      dingtalkToken: document.getElementById("dingtalk-token").value,
+      wechatToken: document.getElementById("wechat-token").value,
+      gotifyUrl: document.getElementById("gotify-url").value,
+      gotifyToken: document.getElementById("gotify-token").value,
+      customUa: false, userAgent: "", skipWords: skipWords.length > 0 ? skipWords : null
     });
-
-    showSuccess("设置保存成功");
+    showSuccess("保存成功");
     await loadSettings();
-  } catch (error) {
-    showError("设置保存失败: " + error);
-  }
-}
-
-function resetSettings() {
-  if (confirm("确定要恢复默认设置吗？")) {
-    document.getElementById("grab-mode").value = "0";
-    document.getElementById("delay-time").value = "2";
-    document.getElementById("max-attempts").value = "100";
-    document.getElementById("enable-push").checked = false;
-    document.getElementById("bark-token").value = "";
-    document.getElementById("pushplus-token").value = "";
-    document.getElementById("fangtang-token").value = "";
-    document.getElementById("dingtalk-token").value = "";
-    document.getElementById("wechat-token").value = "";
-    document.getElementById("gotify-url").value = "";
-    document.getElementById("gotify-token").value = "";
-    document.getElementById("custom-ua").checked = false;
-    document.getElementById("user-agent").value = "";
-    showSuccess("设置已恢复默认");
-  }
-}
-
-async function loadLogs() {
-  const container = document.getElementById("logs-container");
-  try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-    const logs = await invoke("get_logs");
-
-    if (logs && logs.length > 0) {
-      container.innerHTML = logs
-        .map((log) => `<div class="log-entry">${log}</div>`)
-        .join("");
-      container.scrollTop = container.scrollHeight;
-
-      document.getElementById("log-count").textContent = logs.length;
-    } else {
-      container.innerHTML = '<div class="log-entry">暂无日志</div>';
-      document.getElementById("log-count").textContent = "0";
-    }
-  } catch (error) {
-    console.error("Failed to load logs:", error);
-    container.innerHTML = `<div style="color: var(--error-color);">加载日志失败: ${error.message}</div>`;
-    document.getElementById("log-count").textContent = "0";
-  }
+  } catch (error) { showError("保存失败: " + error); }
 }
 
 function updateUptime() {
   const startTime = Date.now();
   setInterval(() => {
     const elapsed = Date.now() - startTime;
-    const minutes = Math.floor(elapsed / 60000);
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-
-    let uptimeText = "";
-    if (hours > 0) {
-      uptimeText = `${hours} 小时 ${remainingMinutes} 分钟`;
-    } else {
-      uptimeText = `${minutes} 分钟`;
-    }
-
-    document.getElementById("uptime").textContent = uptimeText;
+    const min = Math.floor(elapsed / 60000);
+    const h = Math.floor(min / 60);
+    document.getElementById("uptime").textContent = h > 0 ? `${h} 小时 ${min % 60} 分钟` : `${min} 分钟`;
   }, 60000);
-}
-
-async function init() {
-  console.log("Starting application initialization...");
-
-  try {
-    updateUptime();
-    await updateSystemInfo();
-
-    await loadAccounts();
-    await loadSettings();
-    setupPushSettingsEventListeners();
-
-    await initGrabLogs();
-
-    setInterval(() => {
-      const grabTab = document.getElementById("tab-grab");
-      if (grabTab && grabTab.classList.contains("active")) {
-        loadGrabLogs();
-      }
-    }, 3000);
-
-    setInterval(async () => {
-      const accountsTab = document.getElementById("tab-accounts");
-      if (accountsTab && accountsTab.classList.contains("active")) {
-        await reloadAccounts();
-      }
-    }, 30000);
-
-    console.log("Application initialization complete");
-  } catch (error) {
-    console.error("Initialization error:", error);
-  }
 }
 
 async function updateSystemInfo() {
   try {
-    if (!invoke) {
-      return;
-    }
-
+    if (!invoke) return;
     const appInfo = await invoke("get_app_info");
     if (appInfo) {
-      const versionElement = document.querySelector(".app-version");
-      if (versionElement) {
-        versionElement.textContent = `v${appInfo.version}`;
-      }
-
-      if (appInfo.machine_id) {
-        console.log("Machine ID:", appInfo.machine_id);
-      }
+      const el = document.querySelector(".app-version");
+      if (el) el.textContent = `v${appInfo.version}`;
     }
-  } catch (error) {
-    console.error("更新系统信息失败:", error);
-  }
+  } catch (error) { console.error("系统信息失败:", error); }
 }
 
 function switchTab(tabName) {
-  console.log("switchTab called with:", tabName);
-
-  if (!tabName) {
-    console.error("No tab name provided");
-    return;
-  }
-
-  document.querySelectorAll(".nav-tab").forEach((tab) => {
-    tab.classList.remove("active");
-  });
-
-  document.querySelectorAll(".tab-content").forEach((content) => {
-    content.classList.remove("active");
-  });
-
-  const clickedTab = document.querySelector(`[data-tab="${tabName}"]`);
-  if (clickedTab) {
-    clickedTab.classList.add("active");
-  }
-
-  const targetContent = document.getElementById(`tab-${tabName}`);
-  if (targetContent) {
-    targetContent.classList.add("active");
-    console.log(`Successfully switched to tab: ${tabName}`);
-
-    if (tabName === "grab") {
-        loadGrabLogs();
-    } else if (tabName === "projects") {
-      if (typeof loadProjects === "function") {
-        loadProjects();
-      }
-    } else if (tabName === "settings") {
-      if (typeof loadSettings === "function") {
-        loadSettings();
-      }
-    } else if (tabName === "accounts") {
-      if (typeof reloadAccounts === "function") {
-        reloadAccounts();
-      }
-    }
-  } else {
-    console.error(`Tab content not found: tab-${tabName}`);
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+  document.querySelector(`[data-tab="${tabName}"]`)?.classList.add("active");
+  const target = document.getElementById(`tab-${tabName}`);
+  if (target) {
+    target.classList.add("active");
+    if (tabName === "grab") loadInitialLogs();
+    else if (tabName === "projects") loadProjects();
+    else if (tabName === "settings") loadSettings();
+    else if (tabName === "accounts") reloadAccounts();
   }
 }
 
-async function testPush() {
-  if (!invoke) {
-    showError("Tauri API不可用，无法测试推送");
-    return;
-  }
-
-  if (!confirm("确定要发送测试推送吗？")) {
-    return;
-  }
-
-  try {
-    const result = await invoke("push_test", {
-      title: "测试",
-      message: "BTR 测试推送",
-    });
-    showSuccess("测试推送已发送：" + result);
-  } catch (error) {
-    showError("发送失败: " + error);
-  }
+async function init() {
+  updateUptime();
+  await updateSystemInfo();
+  await loadAccounts();
+  await loadSettings();
+  await initLogs();
+  setInterval(async () => {
+    if (document.getElementById("tab-accounts")?.classList.contains("active")) await reloadAccounts();
+  }, 30000);
 }
 
-let grabLogs = [];
+let allLogs = [];
 let autoScrollEnabled = true;
-let logFilters = {
-  info: true,
-  debug: true,
-  warn: true,
-  error: true,
-  success: true,
-};
+let logFilters = { info: true, debug: true, warn: true, error: true, success: true };
 
-async function loadGrabLogs() {
-  const container = document.getElementById("grab-logs-container");
+async function loadInitialLogs() {
   try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-    const logs = await invoke("get_grab_logs");
-
-    if (logs && logs.length > 0) {
-      grabLogs = logs;
-      updateGrabLogsDisplay();
-    } else {
-      container.innerHTML = '<div class="log-entry">暂无抢票日志</div>';
-      updateLogStats();
-    }
-  } catch (error) {
-    console.error("Failed to load grab logs:", error);
-    container.innerHTML = `<div style="color: var(--error-color);">加载抢票日志失败: ${error.message}</div>`;
-    updateLogStats();
-  }
+    if (!invoke) throw new Error("Tauri invoke function not available");
+    const logs = await invoke("get_logs");
+    if (logs && logs.length > 0) { allLogs = logs; updateLogsDisplay(); }
+    else { document.getElementById("grab-logs-container").innerHTML = '<div class="log-entry">暂无日志</div>'; updateLogStats(); }
+  } catch (error) { console.error("加载日志失败:", error); }
 }
 
-function updateGrabLogsDisplay() {
+function updateLogsDisplay() {
   const container = document.getElementById("grab-logs-container");
-  const filteredLogs = grabLogs.filter((log) => {
+  if (!container) return;
+  const filtered = allLogs.filter(log => {
     if (log.includes("INFO:")) return logFilters.info;
     if (log.includes("DEBUG:")) return logFilters.debug;
     if (log.includes("WARN:")) return logFilters.warn;
     if (log.includes("ERROR:")) return logFilters.error;
     return logFilters.success;
   });
-
-  if (filteredLogs.length > 0) {
-    container.innerHTML = filteredLogs
-      .map((log) => formatLogEntry(log))
-      .join("");
-
-    if (autoScrollEnabled) {
-      container.scrollTop = container.scrollHeight;
-    }
-  } else {
-    container.innerHTML = '<div class="log-entry">暂无符合条件的日志</div>';
-  }
-
+  if (filtered.length > 0) {
+    container.innerHTML = filtered.map(log => formatLogEntry(log)).join("");
+    if (autoScrollEnabled) container.scrollTop = container.scrollHeight;
+  } else { container.innerHTML = '<div class="log-entry">暂无符合条件的日志</div>'; }
   updateLogStats();
 }
 
 function formatLogEntry(log) {
-  let levelClass = "";
-  let levelText = "";
-
-  if (log.includes("INFO:")) {
-    levelClass = "info";
-    levelText = "INFO";
-  } else if (log.includes("DEBUG:")) {
-    levelClass = "debug";
-    levelText = "DEBUG";
-  } else if (log.includes("WARN:")) {
-    levelClass = "warn";
-    levelText = "WARN";
-  } else if (log.includes("ERROR:")) {
-    levelClass = "error";
-    levelText = "ERROR";
-  } else {
-    levelClass = "success";
-    levelText = "SUCCESS";
-  }
-
-  const messageMatch = log.match(
-    /\[.*?\]\s*(?:INFO|DEBUG|WARN|ERROR|SUCCESS)?:?\s*(.*)/,
-  );
-  const message = messageMatch ? messageMatch[1] : log;
-
-  return `
-    <div class="log-entry ${levelClass}">
-      <span class="log-level ${levelClass}">${levelText}</span>
-      <span class="log-message">${message}</span>
-    </div>
-  `;
+  let level = "success", text = "SUCCESS";
+  if (log.includes("INFO:")) { level = "info"; text = "INFO"; }
+  else if (log.includes("DEBUG:")) { level = "debug"; text = "DEBUG"; }
+  else if (log.includes("WARN:")) { level = "warn"; text = "WARN"; }
+  else if (log.includes("ERROR:")) { level = "error"; text = "ERROR"; }
+  const match = log.match(/\[.*?\]\s*(?:INFO|DEBUG|WARN|ERROR|SUCCESS)?:?\s*(.*)/);
+  const msg = match ? match[1] : log;
+  return `<div class="log-entry ${level}"><span class="log-level ${level}">${text}</span><span class="log-message">${msg}</span></div>`;
 }
 
 function updateLogStats() {
-  const infoCount = grabLogs.filter((log) => log.includes("INFO:")).length;
-  const debugCount = grabLogs.filter((log) => log.includes("DEBUG:")).length;
-  const warnCount = grabLogs.filter((log) => log.includes("WARN:")).length;
-  const errorCount = grabLogs.filter((log) => log.includes("ERROR:")).length;
-  const successCount = grabLogs.filter(
-    (log) =>
-      !log.includes("INFO:") &&
-      !log.includes("DEBUG:") &&
-      !log.includes("WARN:") &&
-      !log.includes("ERROR:"),
-  ).length;
-
-  document.getElementById("grab-log-count").textContent = grabLogs.length;
-  document.getElementById("info-count").textContent = infoCount;
-  document.getElementById("debug-count").textContent = debugCount;
-  document.getElementById("warn-count").textContent = warnCount;
-  document.getElementById("error-count").textContent = errorCount;
+  const stats = { info: 0, debug: 0, warn: 0, error: 0 };
+  allLogs.forEach(log => {
+    if (log.includes("INFO:")) stats.info++;
+    else if (log.includes("DEBUG:")) stats.debug++;
+    else if (log.includes("WARN:")) stats.warn++;
+    else if (log.includes("ERROR:")) stats.error++;
+  });
+  document.getElementById("grab-log-count").textContent = allLogs.length;
+  document.getElementById("log-count").textContent = allLogs.length;
+  ["info", "debug", "warn", "error"].forEach(lv => {
+    const el = document.getElementById(`${lv}-count`);
+    if (el) el.textContent = stats[lv];
+  });
 }
 
-async function clearGrabLogs() {
-  if (!confirm("确定要清空所有抢票日志吗？此操作不可撤销！")) return;
-
+async function clearAllLogs() {
+  if (!confirm("清空日志？")) return;
   try {
-    await invoke("clear_grab_logs");
-    grabLogs = [];
-    updateGrabLogsDisplay();
-    showSuccess("抢票日志已清空");
-  } catch (error) {
-    showError("清空抢票日志失败: " + error);
-  }
-}
-
-function updatePushSettingsVisibility() {
-  document.querySelectorAll('[id^="push-method-"]').forEach((checkbox) => {
-    const method = checkbox.id.replace('push-method-', '');
-    const settings = document.getElementById(`${method}-settings`);
-    if (settings) {
-      settings.style.display = checkbox.checked ? "block" : "none";
-    }
-  });
-}
-
-function updateSkipWordsVisibility() {
-  const grabMode = document.getElementById("grab-mode").value;
-  const skipWordsSettings = document.getElementById("skip-words-settings");
-  if (skipWordsSettings) {
-    skipWordsSettings.style.display = (grabMode === "2") ? "flex" : "none";
-  }
-}
-
-function setupPushSettingsEventListeners() {
-  document.querySelectorAll('[id^="push-method-"]').forEach((checkbox) => {
-    if (checkbox) {
-      checkbox.addEventListener("change", updatePushSettingsVisibility);
-    }
-  });
-}
-
-function toggleAutoScroll() {
-  autoScrollEnabled = !autoScrollEnabled;
-  const button = document.getElementById("auto-scroll-btn");
-  button.textContent = `自动滚动: ${autoScrollEnabled ? "开启" : "关闭"}`;
-  button.classList.toggle("btn-info", autoScrollEnabled);
-  button.classList.toggle("btn-secondary", !autoScrollEnabled);
+    await invoke("clear_logs");
+    allLogs = [];
+    updateLogsDisplay();
+  } catch (error) { showError("清空失败: " + error); }
 }
 
 function toggleLogFilter(level) {
   logFilters[level] = !logFilters[level];
-  const button = document.getElementById(`filter-${level}-btn`);
-  if (button) {
-    button.classList.toggle("active", logFilters[level]);
-  }
-  updateGrabLogsDisplay();
+  document.getElementById(`filter-${level}-btn`)?.classList.toggle("active", logFilters[level]);
+  updateLogsDisplay();
 }
 
-function setupGrabLogsEventListeners() {
-  // 按钮事件监听
-  document
-    .getElementById("refresh-grab-logs-btn")
-    ?.addEventListener("click", loadGrabLogs);
-  document
-    .getElementById("clear-grab-logs-btn")
-    ?.addEventListener("click", clearGrabLogs);
-  document
-    .getElementById("auto-scroll-btn")
-    ?.addEventListener("click", toggleAutoScroll);
-
-  // 过滤器按钮事件监听
-  document
-    .getElementById("filter-info-btn")
-    ?.addEventListener("click", () => toggleLogFilter("info"));
-  document
-    .getElementById("filter-debug-btn")
-    ?.addEventListener("click", () => toggleLogFilter("debug"));
-  document
-    .getElementById("filter-warn-btn")
-    ?.addEventListener("click", () => toggleLogFilter("warn"));
-  document
-    .getElementById("filter-error-btn")
-    ?.addEventListener("click", () => toggleLogFilter("error"));
-  document
-    .getElementById("filter-success-btn")
-    ?.addEventListener("click", () => toggleLogFilter("success"));
-
-  // 搜索功能
-  const searchInput = document.getElementById("log-search");
-  if (searchInput) {
-    searchInput.addEventListener("input", function () {
-      const searchTerm = this.value.toLowerCase();
-      const container = document.getElementById("grab-logs-container");
-      const logEntries = container.querySelectorAll(".log-entry");
-
-      logEntries.forEach((entry) => {
-        const text = entry.textContent.toLowerCase();
-        entry.style.display = text.includes(searchTerm) ? "" : "none";
-      });
-    });
-  }
+function toggleAutoScroll() {
+  autoScrollEnabled = !autoScrollEnabled;
+  const btn = document.getElementById("auto-scroll-btn");
+  if (btn) btn.textContent = `自动滚动: ${autoScrollEnabled ? '开启' : '关闭'}`;
 }
 
-// 初始化抢票日志
-async function initGrabLogs() {
-  setupGrabLogsEventListeners();
-  await loadGrabLogs();
+function setupLogsEventListeners() {
+  document.getElementById("refresh-grab-logs-btn")?.addEventListener("click", loadInitialLogs);
+  document.getElementById("clear-grab-logs-btn")?.addEventListener("click", clearAllLogs);
+  document.getElementById("auto-scroll-btn")?.addEventListener("click", toggleAutoScroll);
+  ["info", "debug", "warn", "error", "success"].forEach(lv => {
+    document.getElementById(`filter-${lv}-btn`)?.addEventListener("click", () => toggleLogFilter(lv));
+  });
+  document.getElementById("log-search")?.addEventListener("input", function() {
+    const term = this.value.toLowerCase();
+    document.querySelectorAll(".log-entry").forEach(el => el.style.display = el.textContent.toLowerCase().includes(term) ? "" : "none");
+  });
 }
 
-window.addEventListener("beforeunload", function () {
-  if (qrcodePollingInterval) {
-    clearInterval(qrcodePollingInterval);
-  }
-});
+async function initLogs() { setupLogsEventListeners(); await loadInitialLogs(); }
+
+window.addEventListener("beforeunload", () => { if (qrcodePollingInterval) clearTimeout(qrcodePollingInterval); });

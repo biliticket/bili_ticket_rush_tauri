@@ -1601,7 +1601,7 @@ fn poll_qrcode_status(
 }
 
 fn main() {
-    if let Err(e) = common::init_logger() {
+    if let Err(e) = common::record_log::init() {
         eprintln!("初始化日志失败，原因: {}", e);
     }
     log::info!("日志初始化成功");
@@ -1624,8 +1624,17 @@ fn main() {
         std::process::exit(1);
     }
 
+    use tauri::Emitter;
+
     tauri::Builder::default()
         .manage(AppState::new())
+        .setup(|app| {
+            let handle = app.handle().clone();
+            common::record_log::add_log_listener(move |message| {
+                let _ = handle.emit("log-event", message);
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_accounts,
             reload_accounts,
