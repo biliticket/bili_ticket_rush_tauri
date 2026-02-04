@@ -1,15 +1,162 @@
 let invoke = null;
 
 let smsCaptchaKey = null;
-let qrcodePollingInterval = null;
-let grabResultPollingInterval = null;
 let currentTaskId = null;
 let isGrabTaskRunning = false; 
-let monitorStats = {
-  attempts: 0,
-  success: 0,
-  failures: 0,
-};
+
+async function initializeEventSystem() {
+  if (window.__TAURI__ && window.__TAURI__.event) {
+    await window.__TAURI__.event.listen('task-update', (event) => {
+      handleTaskUpdate(event.payload);
+    });
+    console.log("Event system initialized");
+  } else {
+    console.error("Tauri event system not available");
+  }
+}
+
+function handleTaskUpdate(result) {
+  if (!result) return;
+  
+  const type = Object.keys(result)[0];
+  const data = result[type];
+
+  switch (type) {
+    case "QrCodeLoginResult":
+      handleQrCodeResult(data);
+      break;
+    case "PasswordLoginResult":
+      handlePasswordLoginResult(data);
+      break;
+    case "SubmitSmsLoginResult":
+      handleSubmitSmsLoginResult(data);
+      break;
+    case "LoginSmsResult":
+      handleLoginSmsResult(data);
+      break;
+    case "GetTicketInfoResult":
+      handleGetTicketInfoResult(data);
+      break;
+    case "GetBuyerInfoResult":
+      handleGetBuyerInfoResult(data);
+      break;
+    case "GrabTicketResult":
+      handleGrabTicketResult(data);
+      break;
+    default:
+      console.log("Unknown task result type:", type);
+  }
+}
+
+function handleQrCodeResult(data) {
+    const statusText = document.getElementById("qrcode-status-text");
+    const overlay = document.getElementById("qrcode-expired-overlay");
+
+    let status = data.status;
+    let statusType = typeof status === 'string' ? status : Object.keys(status)[0];
+    let statusValue = typeof status === 'string' ? null : status[statusType];
+
+    if (statusType === "Expired") {
+        if (overlay) overlay.style.display = "flex";
+        if (statusText) statusText.textContent = "二维码已过期，请刷新";
+        showWarning("二维码已过期，请刷新二维码");
+    } else if (statusType === "Success") {
+        let cookie = statusValue;
+        if (cookie) {
+            closeAddAccountModal();
+            invoke("add_account_by_cookie", { cookie: cookie }).then(() => {
+                showSuccess("登录成功！账号已添加");
+                reloadAccounts();
+            }).catch(err => {
+                showError("登录成功但添加账号失败: " + err);
+            });
+        }
+    } else if (statusType === "Scanning") {
+        if (statusText) statusText.textContent = "二维码已扫描，等待确认";
+        if (overlay) overlay.style.display = "none";
+    } else if (statusType === "Confirming") {
+        if (statusText) statusText.textContent = "二维码已确认，正在登录";
+        if (overlay) overlay.style.display = "none";
+    } else if (statusType === "Failed") {
+        if (statusText) statusText.textContent = "登录失败: " + statusValue;
+    }
+}
+
+function handlePasswordLoginResult(data) {
+    if (data.success && data.cookie) {
+        closeAddAccountModal();
+        invoke("add_account_by_cookie", { cookie: data.cookie }).then(() => {
+            showSuccess("密码登录成功！账号已添加");
+            reloadAccounts();
+        }).catch(err => {
+            showError("密码登录成功但添加账号失败: " + err);
+        });
+    } else {
+        showError("密码登录失败: " + data.message);
+    }
+}
+
+function handleSubmitSmsLoginResult(data) {
+    if (data.success && data.cookie) {
+        closeAddAccountModal();
+        invoke("add_account_by_cookie", { cookie: data.cookie }).then(() => {
+            showSuccess("手机号登录成功！账号已添加");
+            reloadAccounts();
+        }).catch(err => {
+            showError("手机号登录成功但添加账号失败: " + err);
+        });
+    } else {
+        showError("手机号登录失败: " + data.message);
+    }
+}
+
+function handleLoginSmsResult(data) {
+    if (data.success) {
+        showSuccess("短信验证码已发送！");
+        smsCaptchaKey = data.message;
+    } else {
+        showError("发送短信验证码失败: " + data.message);
+    }
+}
+
+function handleGetTicketInfoResult(data) {
+    const modal = document.getElementById("screen-ticket-modal");
+    if (!modal.classList.contains("active")) return;
+    
+    if (data.success && data.ticket_info) {
+        showScreenTicketSelector(data.ticket_info.data);
+    } else {
+        showError(data.message || "获取项目详情失败");
+        closeScreenTicketModal();
+    }
+}
+
+function handleGetBuyerInfoResult(data) {
+    const buyerLoading = document.getElementById("buyer-loading");
+    if (buyerLoading.style.display === "none") return; 
+
+    if (data.success && data.buyer_info) {
+        displayBuyerList(data.buyer_info);
+        document.getElementById("buyer-loading").style.display = "none";
+        document.getElementById("buyer-list").style.display = "block";
+    } else {
+        document.getElementById("buyer-loading").style.display = "none";
+        document.getElementById("buyer-error").style.display = "block";
+        document.getElementById("buyer-error").textContent = "加载购票人失败: " + data.message;
+    }
+}
+
+function handleGrabTicketResult(data) {
+    if (data.task_id !== currentTaskId) return;
+
+    if (data.success) {
+        showGrabSuccessModal(data);
+        stopGrab();
+    } else if (data.message && data.message.includes("待付款订单")) {
+        showError(data.message);
+        stopGrab();
+    }
+}
 
 function showAddAccountModal() {
   const modal = document.getElementById("add-account-modal");
@@ -40,18 +187,6 @@ function switchLoginMethod(method) {
 
   if (method === "qrcode") {
     refreshQrcode();
-  } else {
-    if (qrcodePollingInterval) {
-      clearTimeout(qrcodePollingInterval);
-      qrcodePollingInterval = null;
-    }
-  }
-  
-  if (method !== "password") {
-    if (passwordLoginPollingInterval) {
-      clearInterval(passwordLoginPollingInterval);
-      passwordLoginPollingInterval = null;
-    }
   }
 }
 
@@ -59,15 +194,6 @@ function closeAddAccountModal() {
   const modal = document.getElementById("add-account-modal");
   if (modal) {
     modal.classList.remove("active");
-  }
-
-  if (qrcodePollingInterval) {
-    clearTimeout(qrcodePollingInterval);
-    qrcodePollingInterval = null;
-  }
-  if (passwordLoginPollingInterval) {
-    clearInterval(passwordLoginPollingInterval);
-    passwordLoginPollingInterval = null;
   }
 
   const cookieInput = document.getElementById("account-cookie");
@@ -201,11 +327,9 @@ async function requestSmsCode() {
     if (!invoke) {
       throw new Error("Tauri invoke function not available");
     }
-    const result = await invoke("send_loginsms_command", { phoneNumber, cid });
-    smsCaptchaKey = result;
-    showSuccess("短信验证码已发送！");
+    const taskId = await invoke("send_loginsms_command", { phoneNumber, cid });
+    showSuccess("发送短信请求已提交...");
   } catch (error) {
-    console.error("请求短信验证码失败:", error);
     showError("请求短信验证码失败: " + error);
     clearInterval(countdownInterval);
     sendSmsButton.textContent = originalButtonText;
@@ -231,14 +355,9 @@ async function submitPhoneLogin() {
     if (!invoke) {
       throw new Error("Tauri invoke function not available");
     }
-    const cookies = await invoke("submit_loginsms_command", { phoneNumber, cid, smsCode, captchaKey: smsCaptchaKey });
-
-    await invoke("add_account_by_cookie", { cookie: cookies });
-    showSuccess("手机号登录成功！账号已添加");
-    closeAddAccountModal();
-    await reloadAccounts();
+    const taskId = await invoke("submit_loginsms_command", { phoneNumber, cid, smsCode, captchaKey: smsCaptchaKey });
+    showSuccess("手机号登录任务已提交...");
   } catch (error) {
-    console.error("手机号登录失败:", error);
     showError("手机号登录失败: " + error);
   }
 }
@@ -257,52 +376,10 @@ async function submitPasswordLogin() {
       throw new Error("Tauri invoke function not available");
     }
     const taskId = await invoke("password_login_command", { username, password });
-    showSuccess("密码登录任务已提交, 任务ID: " + taskId);
-
-    startPasswordLoginPolling(taskId);
+    showSuccess("密码登录任务已提交...");
   } catch (error) {
-    console.error("密码登录失败:", error);
     showError("密码登录失败: " + error);
   }
-}
-
-let passwordLoginPollingInterval = null;
-function startPasswordLoginPolling(taskId) {
-  if (passwordLoginPollingInterval) {
-    clearInterval(passwordLoginPollingInterval);
-  }
-
-  passwordLoginPollingInterval = setInterval(async () => {
-    try {
-      if (!invoke) {
-        throw new Error("Tauri invoke function not available");
-      }
-
-      const results = await invoke("poll_task_results");
-      const result = results.find(r => r.type === "PasswordLoginResult" && r.task_id === taskId);
-
-      if (result) {
-        clearInterval(passwordLoginPollingInterval);
-        passwordLoginPollingInterval = null;
-
-        if (result.success && result.cookie) {
-          try {
-            await invoke("add_account_by_cookie", { cookie: result.cookie });
-            showSuccess("密码登录成功！账号已添加");
-            closeAddAccountModal();
-          } catch (error) {
-            console.error("添加账号失败:", error);
-            showError("密码登录成功但添加账号失败: " + error);
-          }
-        } else {
-          showError("密码登录失败: " + result.message);
-        }
-        await reloadAccounts();
-      }
-    } catch (error) {
-      console.error("轮询密码登录状态失败:", error);
-    }
-  }, 2000);
 }
 
 function initializeEventListeners() {
@@ -394,6 +471,8 @@ function initializeApp() {
   try {
     invoke = window.__TAURI__.core.invoke;
     console.log("invoke function loaded successfully");
+
+    initializeEventSystem();
 
     if (window.__TAURI__.event && window.__TAURI__.event.listen) {
       window.__TAURI__.event.listen('log-event', (event) => {
@@ -507,12 +586,10 @@ async function refreshQrcode() {
     if (qrcodeData && qrcodeData.url) {
       document.getElementById("qrcode-img").src = qrcodeData.url;
       if (statusText) statusText.textContent = "请使用B站APP扫描二维码登录";
-      startQrcodePolling(qrcodeData.key);
     } else {
       throw new Error("无法生成二维码");
     }
   } catch (error) {
-    console.error("刷新二维码失败:", error);
     showError("生成二维码失败: " + error.message);
   }
 }
@@ -522,72 +599,6 @@ function handleQrcodeClick() {
   if (overlay && overlay.style.display !== "none") {
     refreshQrcode();
   }
-}
-
-function startQrcodePolling(qrcodeKey) {
-  if (qrcodePollingInterval) {
-    clearTimeout(qrcodePollingInterval);
-    qrcodePollingInterval = null;
-  }
-
-  const poll = async () => {
-    try {
-      if (!invoke) return;
-
-      const result = await invoke("poll_qrcode_status", { key: qrcodeKey });
-
-      if (result.status === "success") {
-        qrcodePollingInterval = null;
-        closeAddAccountModal();
-
-        if (result.cookie) {
-          try {
-            await invoke("add_account_by_cookie", { cookie: result.cookie });
-            showSuccess("登录成功！账号已添加");
-          } catch (error) {
-            console.error("添加账号失败:", error);
-            showError("登录成功但添加账号失败: " + error);
-          }
-        } else {
-          showSuccess("登录成功！");
-        }
-
-        await reloadAccounts();
-        return;
-      } 
-      
-      if (result.status === "expired") {
-        qrcodePollingInterval = null;
-        const overlay = document.getElementById("qrcode-expired-overlay");
-        if (overlay) overlay.style.display = "flex";
-        const statusText = document.getElementById("qrcode-status-text");
-        if (statusText) statusText.textContent = "二维码已过期，请刷新";
-        showWarning("二维码已过期，请刷新二维码");
-        return;
-      }
-
-      const overlay = document.getElementById("qrcode-expired-overlay");
-      if (overlay) overlay.style.display = "none";
-      
-      const statusText = document.getElementById("qrcode-status-text");
-      if (statusText) {
-        if (result.status === "scanning") {
-          statusText.textContent = "二维码已扫描，等待确认";
-        } else if (result.status === "confirming") {
-          statusText.textContent = "二维码已确认，正在登录";
-        } else {
-          statusText.textContent = "请使用B站APP扫描二维码登录";
-        }
-      }
-
-      qrcodePollingInterval = setTimeout(poll, 3000);
-    } catch (error) {
-      console.error("轮询二维码状态失败:", error);
-      qrcodePollingInterval = setTimeout(poll, 3000);
-    }
-  };
-
-  qrcodePollingInterval = setTimeout(poll, 3000);
 }
 
 function showAddProjectModal() {
@@ -715,38 +726,43 @@ async function loadProjects() {
   const loading = document.getElementById("projects-loading");
   const list = document.getElementById("projects-list");
 
+  if (loading) loading.style.display = "block";
+  if (list) list.style.display = "none";
+
   try {
     if (!invoke) throw new Error("Tauri invoke function not available");
     const projects = await invoke("get_projects");
 
-    loading.style.display = "none";
-    list.style.display = "grid";
-    list.innerHTML = "";
-
-    if (!projects || projects.length === 0) {
-      list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">暂无项目</div>';
-      return;
+    if (list) {
+        list.innerHTML = "";
+        if (!projects || projects.length === 0) {
+          list.innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-secondary); grid-column: 1 / -1;">暂无项目</div>';
+        } else {
+            projects.forEach((project) => {
+              const div = document.createElement("div");
+              div.className = "project-card";
+              div.innerHTML = `
+                        <div class="project-name">${project.name || "未命名项目"}</div>
+                        <div class="project-info">ID: ${project.id}</div>
+                        <div class="project-info" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${project.url || "无URL"}</div>
+                        <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="selectProject('${project.id}')">选择</button>
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteProject('${project.id}')">删除</button>
+                        </div>
+                    `;
+              list.appendChild(div);
+            });
+        }
     }
-
-    projects.forEach((project) => {
-      const div = document.createElement("div");
-      div.className = "project-card";
-      div.innerHTML = `
-                <div class="project-name">${project.name || "未命名项目"}</div>
-                <div class="project-info">ID: ${project.id}</div>
-                <div class="project-info" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${project.url || "无URL"}</div>
-                <div style="margin-top: 12px; display: flex; gap: 8px;">
-                    <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="selectProject('${project.id}')">选择</button>
-                    <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteProject('${project.id}')">删除</button>
-                </div>
-            `;
-      list.appendChild(div);
-    });
   } catch (error) {
     console.error("加载项目失败:", error);
-    loading.style.display = "none";
-    list.style.display = "grid";
-    list.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--error-color); grid-column: 1 / -1;">加载失败: ${error.message}</div>`;
+    if (list) {
+        const errorMsg = typeof error === 'string' ? error : (error.message || JSON.stringify(error));
+        list.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--error-color); grid-column: 1 / -1;">加载失败: ${errorMsg}</div>`;
+    }
+  } finally {
+    if (loading) loading.style.display = "none";
+    if (list) list.style.display = "grid";
   }
 }
 
@@ -755,8 +771,6 @@ function addProject() {
 }
 
 async function refreshProjects() {
-  document.getElementById("projects-loading").style.display = "block";
-  document.getElementById("projects-list").style.display = "none";
   await loadProjects();
 }
 
@@ -771,35 +785,11 @@ async function selectProject(projectId) {
       return;
     }
     showScreenTicketModal();
-    const taskId = await invoke("get_ticket_info", { uid: activeAccount.uid, projectId: projectId });
-    const ticketInfo = await pollForTicketInfo(taskId);
-    showScreenTicketSelector(ticketInfo);
+    await invoke("get_ticket_info", { uid: activeAccount.uid, projectId: projectId });
   } catch (error) {
     showError("选择项目失败: " + error);
     closeScreenTicketModal();
   }
-}
-
-async function pollForTicketInfo(taskId) {
-  const maxAttempts = 30;
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const results = await invoke("poll_task_results");
-      const result = results.find((r) => r.type === "GetTicketInfoResult");
-      if (result) {
-        if (result.success && result.ticket_info) {
-          return result.ticket_info.data;
-        } else if (!result.success) {
-          throw new Error(result.message || "获取项目详情失败");
-        }
-      }
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } catch (error) {
-      console.error("轮询错误:", error);
-      throw error;
-    }
-  }
-  throw new Error("获取项目详情超时");
 }
 
 function showScreenTicketModal() {
@@ -935,30 +925,12 @@ async function loadBuyerInfo() {
     const accounts = await invoke("get_accounts");
     const activeAccount = accounts.find((a) => a.is_active);
     if (!activeAccount) throw new Error("请先激活一个账号");
-    const taskId = await invoke("get_buyer_info", { uid: activeAccount.uid });
-    const buyerInfo = await pollForBuyerInfo(taskId);
-    displayBuyerList(buyerInfo);
-    buyerLoading.style.display = "none";
-    buyerList.style.display = "block";
+    await invoke("get_buyer_info", { uid: activeAccount.uid });
   } catch (error) {
     buyerLoading.style.display = "none";
     buyerError.style.display = "block";
     buyerError.textContent = "加载购票人失败: " + error.message;
   }
-}
-
-async function pollForBuyerInfo(taskId) {
-  const maxAttempts = 30;
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const results = await invoke("poll_task_results");
-    const result = results.find((r) => r.task_id === taskId);
-    if (result) {
-      if (!result.success) throw new Error(result.message || "获取购票人信息失败");
-      return result.buyer_info;
-    }
-  }
-  throw new Error("获取购票人信息超时");
 }
 
 function displayBuyerList(buyerInfo) {
@@ -1011,15 +983,6 @@ async function startGrab() {
     document.getElementById("monitor-status").textContent = "运行中";
     document.getElementById("monitor-status").style.color = "var(--success-color)";
     showSuccess("开始抢票! 任务ID: " + taskId);
-    grabResultPollingInterval = setInterval(async () => {
-        try {
-            const results = await invoke("poll_task_results");
-            const successResult = results.find(r => r.type === "GrabTicketResult" && r.success === true && r.task_id === currentTaskId);
-            if (successResult) { showGrabSuccessModal(successResult); stopGrab(); return; }
-            const pendingPaymentResult = results.find(r => r.type === "GrabTicketResult" && r.success === false && r.task_id === currentTaskId && r.message.includes("待付款订单"));
-            if (pendingPaymentResult) { showError(pendingPaymentResult.message); stopGrab(); return; }
-        } catch (pollError) { console.error("轮询错误:", pollError); }
-    }, 2000);
   } catch (error) {
     isGrabTaskRunning = false;
     document.getElementById("start-grab-btn").disabled = false;
@@ -1031,7 +994,6 @@ async function startGrab() {
 async function stopGrab() {
   try {
     if (!invoke) throw new Error("Tauri invoke function not available");
-    if (grabResultPollingInterval) { clearInterval(grabResultPollingInterval); grabResultPollingInterval = null; }
     if (currentTaskId) {
       await invoke("cancel_task", { taskId: currentTaskId });
       currentTaskId = null;
@@ -1276,4 +1238,4 @@ function setupLogsEventListeners() {
 
 async function initLogs() { setupLogsEventListeners(); await loadInitialLogs(); }
 
-window.addEventListener("beforeunload", () => { if (qrcodePollingInterval) clearTimeout(qrcodePollingInterval); });
+window.addEventListener("beforeunload", () => {});

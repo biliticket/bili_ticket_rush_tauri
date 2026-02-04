@@ -7,9 +7,10 @@ use config::PushConfig;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Instant;
+use serde::{Serialize, Deserialize};
 
 // 任务状态枚举
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TaskStatus {
     Pending,
     Running,
@@ -19,12 +20,13 @@ pub enum TaskStatus {
 }
 
 // 票务结果
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TicketResult {
     pub success: bool,
     pub order_id: Option<String>,
     pub message: Option<String>,
     pub ticket_info: TicketInfo,
+    #[serde(skip, default = "Instant::now")]
     pub timestamp: Instant,
 }
 
@@ -64,7 +66,7 @@ pub struct PasswordLoginRequest {
 }
 
 // 任务结果枚举
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum TaskResult {
     QrCodeLoginResult(TaskQrCodeLoginResult),
     LoginSmsResult(LoginSmsRequestResult),
@@ -77,7 +79,7 @@ pub enum TaskResult {
     PasswordLoginResult(PasswordLoginResult),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PasswordLoginResult {
     pub task_id: String,
     pub success: bool,
@@ -112,7 +114,7 @@ pub struct GrabTicketTask {
     pub client: Arc<Client>,
     pub start_time: Option<Instant>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GrabTicketResult {
     pub task_id: String,
     pub uid: i64,
@@ -131,7 +133,7 @@ pub struct GetBuyerInfoRequest {
     pub cookie_manager: Arc<CookieManager>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetBuyerInfoResult {
     pub task_id: String,
     pub uid: i64,
@@ -156,7 +158,7 @@ pub struct GetTicketInfoRequest {
     pub cookie_manager: Arc<CookieManager>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetTicketInfoResult {
     pub task_id: String,
     pub uid: i64,
@@ -184,7 +186,7 @@ pub struct PushRequest {
 }
 
 //推送类型
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PushType {
     All,
     Bark,
@@ -196,7 +198,7 @@ pub enum PushType {
 }
 
 // 推送结果结构体
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PushRequestResult {
     pub task_id: String,
     pub success: bool,
@@ -257,13 +259,14 @@ pub struct GetAllorderRequest {
     pub start_time: Option<Instant>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GetAllorderRequestResult {
     pub task_id: String,
     pub account_id: String,
     pub success: bool,
     pub message: String,
     pub order_info: Option<OrderResponse>,
+    #[serde(skip, default = "Instant::now")]
     pub timestamp: Instant,
 }
 
@@ -302,22 +305,23 @@ pub struct SubmitLoginSmsRequest {
     pub client: Client,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TaskTicketResult {
     pub task_id: String,
     pub account_id: String,
     pub result: Result<TicketResult, String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TaskQrCodeLoginResult {
     pub task_id: String,
     pub status: crate::login::QrCodeLoginStatus,
     pub cookie: Option<String>,
     pub error: Option<String>,
+    pub qrcode_key: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct LoginSmsRequestResult {
     pub task_id: String,
     pub phone: String,
@@ -325,7 +329,7 @@ pub struct LoginSmsRequestResult {
     pub message: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SubmitSmsLoginResult {
     pub task_id: String,
     pub phone: String,

@@ -27,7 +27,7 @@ pub struct QrCodeLoginTask {
     pub status: QrCodeLoginStatus,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum QrCodeLoginStatus {
     Pending,
     Scanning,
@@ -75,8 +75,6 @@ pub async fn password_login(
     local_captcha: LocalCaptcha,
 ) -> Result<String, String> {
     let (salt, public_key_str) = get_pubkey_and_salt(client).await?;
-    log::debug!("Got salt: {}, public_key_str: {}", salt, public_key_str);
-
     let captcha_response = request_get(
         client,
         "https://passport.bilibili.com/x/passport-login/captcha",
@@ -170,7 +168,7 @@ pub async fn password_login(
         .json::<serde_json::Value>()
         .await
         .map_err(|e| format!("Failed to parse login response JSON: {}", e))?;
-    log::debug!("Login API response: {:?}", json_response);
+    log::debug!(": {:?}", json_response);
 
     if json_response["code"].as_i64() == Some(0) {
         log::info!("Password login successful!");
@@ -252,7 +250,7 @@ pub async fn get_country_list(client: &Client) -> Result<Vec<Country>, String> {
         }
         Ok(countries)
     } else {
-        Err(json["message"].as_str().unwrap_or("获取国家列表失败").to_string())
+        Err(json["message"].as_str().unwrap_or("获取地区列表失败").to_string())
     }
 }
 

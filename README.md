@@ -140,15 +140,6 @@ A: 这是因为缺少 Visual C++ 可再发行软件包。请根据系统类型�
 - 64 位系统: 下载并安装 [VC_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 - 安装完成后请重启系统
 
-**Q: 安装了 VC++ 运行库后程序仍然闪退或电脑没有显卡怎么办？**  
-A: 这种情况需要安装 Mesa3D 软件渲染器，步骤如下：
-
-1. 参考 [这篇文章](https://zhuanlan.zhihu.com/p/666093183)
-2. 访问 [Mesa3D发布页](https://github.com/pal1000/mesa-dist-win/releases) 下载最新的 `mesa3d-x.y.z-release-msvc.7z` 文件并解压
-3. 运行解压后的 `perappdeploy.cmd`，选择一个空文件夹作为安装路径，全程按 y 确认安装，请注意安装成功后会回到主界面，不要再输入路径重复安装，如果已经再次安装了，那就等他安装完吧（
-4. 运行 `systemwidedeploy.cmd`，输入数字 1，选择第一项，然后按回车键
-5. 完成上述步骤后，重新打开应用程序即可正常运行
-
 **Q: 为什么我看不到日志信息？**  
 A: 请确认是否开启了日志记录功能。可在设置中调整日志级别，开发模式下默认显示更详细的日志。
 
@@ -166,10 +157,10 @@ A: 请确认是否开启了日志记录功能。可在设置中调整日志级�
 
 ## Star History
 
-<a href="https://star-history.com/#biliticket/bili_ticket_rush&Date">
+<a href="https://star-history.com/#biliticket/bili_ticket_rush_tauri&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=biliticket/bili_ticket_rush&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=biliticket/bili_ticket_rush&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=biliticket/bili_ticket_rush&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=biliticket/bili_ticket_rush_tauri&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=biliticket/bili_ticket_rush_tauri&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=biliticket/bili_ticket_rush_tauri&type=Date" />
  </picture>
 </a>
