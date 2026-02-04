@@ -30,5 +30,5 @@ single-instance = "0.3.3"
 
 bili_ticket_gt = { git = "https://github.com/Amorter/biliTicker_gt", branch = "rust" }
 
-reqwest = { version = "0.11.27", features = ["json", "blocking", "cookies"], override = true }
-uuid = { version = "1.20", features = ["v4", "fast-rng"], override = true }
+reqwest = { version = "0.11.27", features = ["json", "blocking", "cookies"] }
+uuid = { version = "1.20", features = ["v4", "fast-rng"] }
