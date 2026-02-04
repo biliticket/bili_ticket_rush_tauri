@@ -55,7 +55,7 @@ jobs:
       - name: Copy artifacts on windows
         if: matrix.os == 'windows-latest'
         run: |
-          Remove-Item -Path target/output -Recurse -Force
+          Remove-Item -Path target/output -Recurse -Force -ErrorAction SilentlyContinue
           mkdir -p target/output
           cp target/${{matrix.debug}}/frontend.exe target/output/${{ env.build_type }}-${{ matrix.build }}.exe
           cp target/${{matrix.debug}}/frontend.pdb target/output/${{ env.build_type }}-${{ matrix.build }}.pdb
