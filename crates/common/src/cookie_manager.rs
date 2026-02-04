@@ -121,146 +121,87 @@ impl CookieManager {
                     .unwrap_or_default();
 
                 //ck部分
-                let (buvid3, buvid4, b_nut) = {
+                let existing_buvids = {
                     let cookies_map = cookies.cookies_map.lock().unwrap();
-                    let existing_buvid3 = cookies_map.get("buvid3").cloned();
-                    let existing_buvid4 = cookies_map.get("buvid4").cloned();
-                    let existing_b_nut = cookies_map.get("b_nut").cloned();
-                    drop(cookies_map);
+                    (
+                        cookies_map.get("buvid3").cloned(),
+                        cookies_map.get("buvid4").cloned(),
+                        cookies_map.get("b_nut").cloned(),
+                    )
+                };
 
-                    if existing_buvid3.is_some()
-                        && existing_buvid4.is_some()
-                        && existing_b_nut.is_some()
-                    {
-                        (
-                            existing_buvid3.unwrap(),
-                            existing_buvid4.unwrap(),
-                            existing_b_nut.unwrap(),
-                        )
-                    } else {
+                let (buvid3, buvid4, b_nut) = match existing_buvids {
+                    (Some(b3), Some(b4), Some(bn)) => (b3, b4, bn),
+                    _ => {
                         gen_buvid3and4(client.clone())
                             .await
                             .unwrap_or_else(|_err| ("".to_string(), "".to_string(), "".to_string()))
                     }
                 };
                 log::debug!("buvid3: {}, buvid4: {}, b_nut: {}", buvid3, buvid4, b_nut);
+
                 let fp = {
                     let cookies_map = cookies.cookies_map.lock().unwrap();
-                    let existing_fp = cookies_map.get("buvid_fp").cloned();
-                    drop(cookies_map);
-
-                    if let Some(fp_value) = existing_fp {
-                        fp_value
-                    } else {
-                        let new_fp = gen_fp();
-
-                        new_fp
-                    }
-                };
+                    cookies_map.get("buvid_fp").cloned()
+                }
+                .unwrap_or_else(gen_fp);
 
                 log::debug!("fp: {}", fp);
+
                 let _uuid = {
                     let cookies_map = cookies.cookies_map.lock().unwrap();
-                    let existing_uuid = cookies_map.get("_uuid").cloned();
-                    drop(cookies_map);
+                    cookies_map.get("_uuid").cloned()
+                }
+                .unwrap_or_else(gen_uuid_infoc);
 
-                    if let Some(uuid_value) = existing_uuid {
-                        log::debug!("使用现有 _uuid: {}", uuid_value);
-                        uuid_value
-                    } else {
-                        let new_uuid = gen_uuid_infoc();
-                        log::debug!("生成新的 _uuid: {}", new_uuid);
-                        new_uuid
-                    }
-                };
                 log::debug!("_uuid: {}", _uuid);
-                let (bili_ticket, bili_ticket_expires) = {
+
+                let existing_ticket = {
                     let cookies_map = cookies.cookies_map.lock().unwrap();
-                    let existing_ticket = cookies_map.get("bili_ticket").cloned();
-                    let existing_expires = cookies_map.get("bili_ticket_expires").cloned();
-                    drop(cookies_map);
+                    (
+                        cookies_map.get("bili_ticket").cloned(),
+                        cookies_map.get("bili_ticket_expires").cloned(),
+                    )
+                };
 
-                    if existing_ticket.is_some() && existing_expires.is_some() {
-                        //验证过期时间
-                        if let Some(expires_str) = &existing_expires {
-                            if let Ok(expires_time) = expires_str.parse::<i64>() {
-                                let current_time = SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_secs()
-                                    as i64;
-
-                                // 未过期，使用已有的
-                                if current_time < expires_time {
-                                    log::debug!(
-                                        "使用现有 bili_ticket (有效期至: {})",
-                                        expires_time
-                                    );
-                                    (existing_ticket.unwrap(), existing_expires.unwrap()) // 删除了return关键字
-                                } else {
-                                    log::debug!("bili_ticket 已过期，重新生成");
-                                    // 生成新的
-                                    gen_ckbili_ticket(client.clone())
-                                        .await
-                                        .unwrap_or_else(|err| {
-                                            log::error!("生成bili_ticket失败: {}", err);
-                                            ("".to_string(), "".to_string())
-                                        })
-                                }
+                let (bili_ticket, bili_ticket_expires) = match existing_ticket {
+                    (Some(t), Some(e)) => {
+                        if let Ok(expires_time) = e.parse::<i64>() {
+                            let current_time = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs() as i64;
+                            if current_time < expires_time {
+                                (t, e)
                             } else {
-                                // 解析失败
                                 gen_ckbili_ticket(client.clone())
                                     .await
-                                    .unwrap_or_else(|err| {
-                                        log::error!("生成bili_ticket失败: {}", err);
-                                        ("".to_string(), "".to_string())
-                                    })
+                                    .unwrap_or_else(|_| ("".to_string(), "".to_string()))
                             }
                         } else {
-                            //无过期时间
                             gen_ckbili_ticket(client.clone())
                                 .await
-                                .unwrap_or_else(|err| {
-                                    log::error!("生成bili_ticket失败: {}", err);
-                                    ("".to_string(), "".to_string())
-                                })
+                                .unwrap_or_else(|_| ("".to_string(), "".to_string()))
                         }
-                    } else {
-                        log::debug!("生成新的 bili_ticket");
+                    }
+                    _ => {
                         gen_ckbili_ticket(client.clone())
                             .await
-                            .unwrap_or_else(|err| {
-                                log::error!("生成bili_ticket失败: {}", err);
-                                ("".to_string(), "".to_string())
-                            })
+                            .unwrap_or_else(|_| ("".to_string(), "".to_string()))
                     }
                 };
+
                 let msourse = {
                     let cookies_map = cookies.cookies_map.lock().unwrap();
-                    let existing_msource = cookies_map.get("msource").cloned();
-                    drop(cookies_map);
+                    cookies_map.get("msource").cloned()
+                }
+                .unwrap_or_else(|| "bilibiliapp".to_string());
 
-                    if let Some(msource_value) = existing_msource {
-                        msource_value
-                    } else {
-                        let new_msource = "bilibiliapp".to_string();
-
-                        new_msource
-                    }
-                };
                 let _01x96 = {
                     let cookies_map = cookies.cookies_map.lock().unwrap();
-                    let existing_01x96 = cookies_map.get("deviceFingerprint").cloned();
-                    drop(cookies_map);
-
-                    if let Some(_01x25) = existing_01x96 {
-                        log::debug!("使用现有 01x96: {}", _01x25);
-                        _01x25
-                    } else {
-                        let new_01x96 = gen_01x88();
-                        new_01x96
-                    }
-                };
+                    cookies_map.get("deviceFingerprint").cloned()
+                }
+                .unwrap_or_else(gen_01x88);
                 let _obf_key = unsafe {
                     std::str::from_utf8_unchecked(&[
                         100, 101, 118, 105, 99, 101, 70, 105, 110, 103, 101, 114, 112, 114, 105,

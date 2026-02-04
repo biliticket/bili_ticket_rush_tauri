@@ -6,6 +6,10 @@ use crate::config::CustomConfig;
 use crate::http_utils::{request_get, request_post};
 use reqwest::Client;
 use serde_json::json;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
+use rsa::{pkcs8::DecodePublicKey, Pkcs1v15Encrypt, RsaPublicKey};
+use rand::rngs::OsRng;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct LoginInput {
@@ -63,8 +67,149 @@ pub fn qrcode_login(client: &Client) -> Result<String, String> {
         }
     })
 }
-pub fn password_login(_username: &str, _password: &str) -> Result<String, String> {
-    Err("暂不支持账号密码登录".to_string())
+pub async fn password_login(
+    username: &str,
+    password: &str,
+    client: &Client,
+    custom_config: CustomConfig,
+    local_captcha: LocalCaptcha,
+) -> Result<String, String> {
+    let (salt, public_key_str) = get_pubkey_and_salt(client).await?;
+    log::debug!("Got salt: {}, public_key_str: {}", salt, public_key_str);
+
+    let captcha_response = request_get(
+        client,
+        "https://passport.bilibili.com/x/passport-login/captcha",
+        None,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let json_captcha = captcha_response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let gt = json_captcha["data"]["geetest"]["gt"].as_str().unwrap_or("");
+    let challenge = json_captcha["data"]["geetest"]["challenge"].as_str().unwrap_or("");
+    let token = json_captcha["data"]["token"].as_str().unwrap_or("");
+    let referer = "https://passport.bilibili.com/x/passport-login/captcha";
+
+    let captcha_result_str = match captcha(
+        custom_config.clone(),
+        gt,
+        challenge,
+        referer,
+        33,
+        local_captcha,
+    )
+    .await
+    {
+        Ok(s) => s,
+        Err(e) => return Err(format!("Captcha recognition failed: {}", e)),
+    };
+    let captcha_result: serde_json::Value =
+        serde_json::from_str(&captcha_result_str).map_err(|e| e.to_string())?;
+
+    let validate = captcha_result["validate"].as_str().unwrap_or("");
+    let seccode = captcha_result["seccode"].as_str().unwrap_or("");
+
+    let encrypted_password = {
+        let public_key = RsaPublicKey::from_public_key_pem(&public_key_str)
+            .map_err(|e| format!("Failed to parse RSA public key: {}", e))?;
+
+        let data_to_encrypt = format!("{}{}", salt, password);
+
+        let mut rng = OsRng;
+        let encrypted_bytes = public_key
+            .encrypt(&mut rng, Pkcs1v15Encrypt, data_to_encrypt.as_bytes())
+            .map_err(|e| format!("Failed to encrypt password: {}", e))?;
+
+        STANDARD.encode(&encrypted_bytes)
+    };
+
+    let json_data = json!({
+        "username": username,
+        "password": encrypted_password,
+        "validate": validate,
+        "token": token,
+        "seccode": seccode,
+        "challenge": challenge,
+        "go_url": "https://www.bilibili.com/",
+        "keep": 0,
+        "source": "main_web",
+    });
+    log::debug!("Login request data: {:?}", json_data);
+
+    let login_response = request_post(
+        client,
+        "https://passport.bilibili.com/x/passport-login/web/login",
+        None,
+        Some(&json_data),
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let mut all_cookies = Vec::new();
+    let cookie_headers = login_response
+        .headers()
+        .get_all(reqwest::header::SET_COOKIE);
+
+    for value in cookie_headers {
+        if let Ok(cookie_str) = value.to_str() {
+            if let Some(end_pos) = cookie_str.find(';') {
+                all_cookies.push(cookie_str[0..end_pos].to_string());
+            } else {
+                all_cookies.push(cookie_str.to_string());
+            }
+        }
+    }
+    log::info!("Cookies received: {:?}", all_cookies);
+
+    let json_response = login_response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Failed to parse login response JSON: {}", e))?;
+    log::debug!("Login API response: {:?}", json_response);
+
+    if json_response["code"].as_i64() == Some(0) {
+        log::info!("Password login successful!");
+        Ok(all_cookies.to_vec().join(";"))
+    } else {
+        Err(format!(
+            "Password login failed: {}",
+            json_response["message"].as_str().unwrap_or("unknown error")
+        ))
+    }
+}
+
+
+async fn get_pubkey_and_salt(client: &Client) -> Result<(String, String), String> {
+    let response = request_get(
+        client,
+        "https://passport.bilibili.com/x/passport-login/web/key",
+        None,
+    )
+    .await
+    .map_err(|e| format!("Failed to get public key and salt: {}", e.to_string()))?;
+
+    let json = response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Failed to parse public key and salt response: {}", e.to_string()))?;
+
+    log::debug!("Public key and salt response: {:?}", json);
+
+    if json["code"].as_i64() == Some(0) {
+        let hash = json["data"]["hash"].as_str().ok_or("hash not found")?.to_string();
+        let key = json["data"]["key"].as_str().ok_or("key not found")?.to_string();
+        Ok((hash, key))
+    } else {
+        Err(format!(
+            "Failed to get public key and salt: {}",
+            json["message"].as_str().unwrap_or("unknown error")
+        ))
+    }
 }
 
 pub async fn send_loginsms(

@@ -12,6 +12,7 @@ use self::{
     grab_ticket_handler::handle_grab_ticket_request,
     login_handler::{
         handle_login_sms_request, handle_qrcode_login_request, handle_submit_login_sms_request,
+        handle_password_login_request, // Add this
     },
     order_handler::handle_get_all_order_request,
     push_handler::handle_push_request,
@@ -83,6 +84,9 @@ impl TaskManager for TaskManagerImpl {
                                 TaskRequest::GrabTicketRequest(grab_ticket_req) => tokio::spawn(
                                     handle_grab_ticket_request(grab_ticket_req, result_tx),
                                 ),
+                                TaskRequest::PasswordLoginRequest(password_login_req) => { // Add this
+                                    tokio::spawn(handle_password_login_request(password_login_req, result_tx))
+                                }
                             };
                             task_handles.insert(task_id, handle);
                         }
@@ -263,6 +267,9 @@ impl TaskManager for TaskManagerImpl {
                 };
                 self.running_tasks
                     .insert(task_id.clone(), Task::GrabTicketTask(task));
+            }
+            TaskRequest::PasswordLoginRequest(_) => {
+                log::info!("提交密码登录任务 ID: {}", task_id);
             }
         }
 

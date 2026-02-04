@@ -11,18 +11,76 @@ let monitorStats = {
   failures: 0,
 };
 
-function showPhoneLoginModal() {
-  document.getElementById("phone-login-modal").classList.add("active");
-  // Optionally clear previous inputs
-  document.getElementById("phone-login-phone").value = "";
-  document.getElementById("phone-login-sms-code").value = "";
-  smsCaptchaKey = null; // Clear captcha key on opening modal
+function showAddAccountModal() {
+  const modal = document.getElementById("add-account-modal");
+  if (modal) {
+    modal.classList.add("active");
+    // Default to qrcode
+    switchLoginMethod("qrcode");
+  } else {
+    console.error("Add account modal not found");
+  }
 }
 
-function closePhoneLoginModal() {
-  document.getElementById("phone-login-modal").classList.remove("active");
-  // Reset any countdowns or states if necessary
-  smsCaptchaKey = null;
+function switchLoginMethod(method) {
+  // Update tabs
+  document.querySelectorAll(".login-tab").forEach(tab => {
+    if (tab.dataset.method === method) {
+      tab.classList.add("active");
+    } else {
+      tab.classList.remove("active");
+    }
+  });
+
+  // Update content
+  document.querySelectorAll(".login-method-content").forEach(content => {
+    if (content.id === `method-${method}`) {
+      content.classList.add("active");
+    } else {
+      content.classList.remove("active");
+    }
+  });
+
+  // Specific logic per method
+  if (method === "qrcode") {
+    refreshQrcode();
+  } else {
+    // Stop qrcode polling if switching away
+    if (qrcodePollingInterval) {
+      clearInterval(qrcodePollingInterval);
+      qrcodePollingInterval = null;
+    }
+  }
+  
+  if (method !== "password") {
+    // Stop password polling if switching away
+    if (passwordLoginPollingInterval) {
+      clearInterval(passwordLoginPollingInterval);
+      passwordLoginPollingInterval = null;
+    }
+  }
+}
+
+function closeAddAccountModal() {
+  const modal = document.getElementById("add-account-modal");
+  if (modal) {
+    modal.classList.remove("active");
+  }
+
+  // Stop any polling
+  if (qrcodePollingInterval) {
+    clearInterval(qrcodePollingInterval);
+    qrcodePollingInterval = null;
+  }
+  if (passwordLoginPollingInterval) {
+    clearInterval(passwordLoginPollingInterval);
+    passwordLoginPollingInterval = null;
+  }
+
+  const cookieInput = document.getElementById("account-cookie");
+  if (cookieInput) {
+    cookieInput.value = "";
+  }
 }
 
 function showGrabSuccessModal(result) {
@@ -141,12 +199,12 @@ async function requestSmsCode() {
       throw new Error("Tauri invoke function not available");
     }
     const result = await invoke("send_loginsms_command", { phoneNumber });
-    smsCaptchaKey = result; // Store the captcha key
+    smsCaptchaKey = result;
     showSuccess("短信验证码已发送！");
   } catch (error) {
     console.error("请求短信验证码失败:", error);
     showError("请求短信验证码失败: " + error);
-    clearInterval(countdownInterval); // Stop countdown on error
+    clearInterval(countdownInterval);
     sendSmsButton.textContent = originalButtonText;
     sendSmsButton.disabled = false;
   }
@@ -173,12 +231,74 @@ async function submitPhoneLogin() {
 
     await invoke("add_account_by_cookie", { cookie: cookies });
     showSuccess("手机号登录成功！账号已添加");
-    closePhoneLoginModal();
+    closeAddAccountModal();
     await reloadAccounts();
   } catch (error) {
     console.error("手机号登录失败:", error);
     showError("手机号登录失败: " + error);
   }
+}
+
+async function submitPasswordLogin() {
+  const username = document.getElementById("password-login-username").value.trim();
+  const password = document.getElementById("password-login-password").value.trim();
+
+  if (!username || !password) {
+    showWarning("请输入用户名和密码");
+    return;
+  }
+
+  try {
+    if (!invoke) {
+      throw new Error("Tauri invoke function not available");
+    }
+    const taskId = await invoke("password_login_command", { username, password });
+    showSuccess("密码登录任务已提交, 任务ID: " + taskId);
+
+    startPasswordLoginPolling(taskId);
+  } catch (error) {
+    console.error("密码登录失败:", error);
+    showError("密码登录失败: " + error);
+  }
+}
+
+let passwordLoginPollingInterval = null;
+function startPasswordLoginPolling(taskId) {
+  if (passwordLoginPollingInterval) {
+    clearInterval(passwordLoginPollingInterval);
+  }
+
+  passwordLoginPollingInterval = setInterval(async () => {
+    try {
+      if (!invoke) {
+        throw new Error("Tauri invoke function not available");
+      }
+
+      const results = await invoke("poll_task_results");
+      const result = results.find(r => r.type === "PasswordLoginResult" && r.task_id === taskId);
+
+      if (result) {
+        clearInterval(passwordLoginPollingInterval);
+        passwordLoginPollingInterval = null;
+
+        if (result.success && result.cookie) {
+          try {
+            await invoke("add_account_by_cookie", { cookie: result.cookie });
+            showSuccess("密码登录成功！账号已添加");
+            closeAddAccountModal();
+          } catch (error) {
+            console.error("添加账号失败:", error);
+            showError("密码登录成功但添加账号失败: " + error);
+          }
+        } else {
+          showError("密码登录失败: " + result.message);
+        }
+        await reloadAccounts();
+      }
+    } catch (error) {
+      console.error("轮询密码登录状态失败:", error);
+    }
+  }, 2000);
 }
 
 function initializeEventListeners() {
@@ -193,13 +313,22 @@ function initializeEventListeners() {
     }
   });
 
+  // Unified login tabs
+  document.querySelectorAll(".login-tab").forEach((tab) => {
+    const method = tab.getAttribute("data-method");
+    if (method) {
+      tab.addEventListener("click", () => {
+        switchLoginMethod(method);
+      });
+    }
+  });
+
   const buttonIds = {
     "add-account-btn": showAddAccountModal,
     "reload-accounts-btn": reloadAccounts,
-    "qrcode-login-btn": showQrcodeLoginModal,
-    "phone-login-btn": showPhoneLoginModal,
     "phone-login-send-sms-btn": requestSmsCode,
     "phone-login-submit-btn": submitPhoneLogin,
+    "password-login-submit-btn": submitPasswordLogin,
     "start-grab-btn": startGrab,
     "stop-grab-btn": stopGrab,
   };
@@ -349,17 +478,50 @@ function showAddAccountModal() {
   const modal = document.getElementById("add-account-modal");
   if (modal) {
     modal.classList.add("active");
+    // Default to qrcode
+    switchLoginMethod("qrcode");
   } else {
     console.error("Add account modal not found");
   }
 }
 
-function closeAddProjectModal() {
-  const modal = document.getElementById("add-project-modal");
-  modal.classList.remove("active");
+function switchLoginMethod(method) {
+  // Update tabs
+  document.querySelectorAll(".login-tab").forEach(tab => {
+    if (tab.dataset.method === method) {
+      tab.classList.add("active");
+    } else {
+      tab.classList.remove("active");
+    }
+  });
 
-  document.getElementById("project-id").value = "";
-  document.getElementById("project-name").value = "";
+  // Update content
+  document.querySelectorAll(".login-method-content").forEach(content => {
+    if (content.id === `method-${method}`) {
+      content.classList.add("active");
+    } else {
+      content.classList.remove("active");
+    }
+  });
+
+  // Specific logic per method
+  if (method === "qrcode") {
+    refreshQrcode();
+  } else {
+    // Stop qrcode polling if switching away
+    if (qrcodePollingInterval) {
+      clearInterval(qrcodePollingInterval);
+      qrcodePollingInterval = null;
+    }
+  }
+  
+  if (method !== "password") {
+    // Stop password polling if switching away
+    if (passwordLoginPollingInterval) {
+      clearInterval(passwordLoginPollingInterval);
+      passwordLoginPollingInterval = null;
+    }
+  }
 }
 
 function closeAddAccountModal() {
@@ -368,23 +530,19 @@ function closeAddAccountModal() {
     modal.classList.remove("active");
   }
 
-  const cookieInput = document.getElementById("account-cookie");
-  if (cookieInput) {
-    cookieInput.value = "";
-  }
-}
-
-function showQrcodeLoginModal() {
-  document.getElementById("qrcode-login-modal").classList.add("active");
-  refreshQrcode();
-}
-
-function closeQrcodeModal() {
-  document.getElementById("qrcode-login-modal").classList.remove("active");
-
+  // Stop any polling
   if (qrcodePollingInterval) {
     clearInterval(qrcodePollingInterval);
     qrcodePollingInterval = null;
+  }
+  if (passwordLoginPollingInterval) {
+    clearInterval(passwordLoginPollingInterval);
+    passwordLoginPollingInterval = null;
+  }
+
+  const cookieInput = document.getElementById("account-cookie");
+  if (cookieInput) {
+    cookieInput.value = "";
   }
 }
 
@@ -394,10 +552,18 @@ async function refreshQrcode() {
       throw new Error("Tauri invoke function not available");
     }
 
+    // Hide expired overlay if showing
+    const overlay = document.getElementById("qrcode-expired-overlay");
+    if (overlay) overlay.style.display = "none";
+    
+    const statusText = document.getElementById("qrcode-status-text");
+    if (statusText) statusText.textContent = "正在生成二维码...";
+
     const qrcodeData = await invoke("qrcode_login");
 
     if (qrcodeData && qrcodeData.url) {
       document.getElementById("qrcode-img").src = qrcodeData.url;
+      if (statusText) statusText.textContent = "请使用B站APP扫描二维码登录";
 
       startQrcodePolling(qrcodeData.key);
     } else {
@@ -406,6 +572,13 @@ async function refreshQrcode() {
   } catch (error) {
     console.error("刷新二维码失败:", error);
     showError("生成二维码失败: " + error.message);
+  }
+}
+
+function handleQrcodeClick() {
+  const overlay = document.getElementById("qrcode-expired-overlay");
+  if (overlay && overlay.style.display !== "none") {
+    refreshQrcode();
   }
 }
 
@@ -438,11 +611,19 @@ function startQrcodePolling(qrcodeKey) {
           showSuccess("登录成功！");
         }
 
-        closeQrcodeModal();
+        closeAddAccountModal();
         await reloadAccounts();
       } else if (result.status === "expired") {
         clearInterval(qrcodePollingInterval);
         qrcodePollingInterval = null;
+        
+        // Show expired overlay
+        const overlay = document.getElementById("qrcode-expired-overlay");
+        if (overlay) overlay.style.display = "flex";
+        
+        const statusText = document.getElementById("qrcode-status-text");
+        if (statusText) statusText.textContent = "二维码已过期，请刷新";
+        
         showWarning("二维码已过期，请刷新二维码");
       } else if (result.status === "error") {
         clearInterval(qrcodePollingInterval);

@@ -177,7 +177,7 @@ impl AppState {
             confirm_ticket_info: None,
             selected_buyer_list: None,
             selected_no_bind_buyer_info: None,
-            buyer_type: 1, // 默认使用实名购票人
+            buyer_type: 1,
             show_add_buyer_window: None,
             show_orderlist_window: None,
             total_order_data: None,
@@ -390,6 +390,39 @@ fn submit_loginsms_command(
 }
 
 #[tauri::command]
+fn password_login_command(
+    state: State<'_, AppState>,
+    username: String,
+    password: String,
+) -> Result<String, String> {
+    let state = state
+        .inner
+        .lock()
+        .map_err(|_| "state lock failed".to_string())?;
+
+    let task_id = uuid::Uuid::new_v4().to_string();
+    let request = common::taskmanager::TaskRequest::PasswordLoginRequest(
+        common::taskmanager::PasswordLoginRequest {
+            task_id: task_id.clone(),
+            username,
+            password,
+            client: state.client.clone(),
+            custom_config: state.custom_config.clone(),
+            local_captcha: common::captcha::LocalCaptcha::new(),
+        },
+    );
+
+    let result = state
+        .task_manager
+        .lock()
+        .map_err(|_| "Failed to lock task manager".to_string())?
+        .submit_task(request)
+        .map_err(|e| format!("submit password login failed: {}", e));
+
+    result
+}
+
+#[tauri::command]
 fn get_ticket_info(
     state: State<'_, AppState>,
     uid: i64,
@@ -571,6 +604,13 @@ fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                 "message": r.message,
                 "pay_result": r.pay_result,
                 "confirm_result": r.confirm_result
+            }),
+            common::taskmanager::TaskResult::PasswordLoginResult(r) => json!({ // Add this
+                "type": "PasswordLoginResult",
+                "task_id": r.task_id,
+                "success": r.success,
+                "message": r.message,
+                "cookie": r.cookie
             }),
         })
         .collect();
@@ -816,7 +856,7 @@ fn set_grab_mode(state: State<'_, AppState>, mode: u8) -> Result<(), String> {
 
 #[tauri::command]
 fn cancel_task(state: State<'_, AppState>, task_id: String) -> Result<(), String> {
-    let mut state = state
+    let state = state
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
@@ -1576,6 +1616,7 @@ fn main() {
             qrcode_login,
             send_loginsms_command,
             submit_loginsms_command,
+            password_login_command,
             get_ticket_info,
             get_buyer_info,
             get_order_list,

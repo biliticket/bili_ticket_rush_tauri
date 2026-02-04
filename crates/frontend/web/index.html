@@ -174,12 +174,6 @@
                         >
                             刷新
                         </button>
-                        <button class="btn btn-warning" id="qrcode-login-btn">
-                            扫码登录
-                        </button>
-                        <button class="btn btn-info" id="phone-login-btn">
-                            手机号登录
-                        </button>
                     </div>
                     <div id="accounts-loading" class="loading">
                         <div class="spinner"></div>
@@ -621,7 +615,7 @@
                         >
                             <p>
                                 1.
-                                在"账号管理"中添加B站账号（支持Cookie登录和扫码登录）
+                                在"账号管理"中添加B站账号 (支持Cookie登录, 扫码登录, 账号密码登录, 手机号登录）
                             </p>
                             <p>2. 在"项目列表"中选择要抢票的项目</p>
                             <p>3. 在"设置"中配置抢票参数和推送通知</p>
@@ -668,7 +662,7 @@
                                     >https://github.com/biliticket/bili_ticket_rush</a
                                 >
                             </p>
-                            <p>许可证: GPLv3 License</p>
+                            <p>许可证: AGPLv3 License</p>
                             <p>反馈: 请在GitHub Issues中提交问题</p>
                         </div>
                     </div>
@@ -677,61 +671,80 @@
         </div>
 
         <div id="add-account-modal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content" style="max-width: 450px;">
                 <h3 class="modal-title">添加账号</h3>
-                <div class="form-group">
-                    <label class="form-label">Cookie</label>
-                    <textarea
-                        class="form-input"
-                        id="account-cookie"
-                        placeholder="请输入Cookie"
-                        rows="4"
-                    ></textarea>
+                
+                <div class="login-tabs">
+                    <div class="login-tab active" data-method="qrcode">扫码登录</div>
+                    <div class="login-tab" data-method="sms">手机号登录</div>
+                    <div class="login-tab" data-method="password">账号密码</div>
+                    <div class="login-tab" data-method="cookie">Cookie</div>
                 </div>
-                <div class="modal-actions">
-                    <button
-                        class="btn btn-primary"
-                        onclick="submitAddAccount()"
-                    >
-                        添加
-                    </button>
-                    <button
-                        class="btn btn-danger"
-                        onclick="closeAddAccountModal()"
-                    >
-                        取消
-                    </button>
-                </div>
-            </div>
-        </div>
 
-        <div id="qrcode-login-modal" class="modal">
-            <div class="modal-content">
-                <h3 class="modal-title">扫码登录</h3>
-                <div class="qrcode-container">
-                    <img
-                        id="qrcode-img"
-                        class="qrcode-img"
-                        src=""
-                        alt="登录二维码"
-                    />
+                <!-- QR Code Login Content -->
+                <div id="method-qrcode" class="login-method-content active">
+                    <div class="qrcode-container" style="margin: 10px 0; position: relative; cursor: pointer;" onclick="handleQrcodeClick()">
+                        <img id="qrcode-img" class="qrcode-img" src="" alt="登录二维码" style="width: 180px; height: 180px;" />
+                        <div id="qrcode-expired-overlay" style="display: none; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 180px; height: 180px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); flex-direction: column; align-items: center; justify-content: center; border-radius: 4px;">
+                            <div style="color: var(--text-primary); font-weight: 600; margin-bottom: 8px;">二维码已过期</div>
+                            <div style="color: var(--accent-color); font-size: 12px;">点击刷新</div>
+                        </div>
+                    </div>
+                    <div id="qrcode-status-text" style="text-align: center; margin-bottom: 16px; color: var(--text-secondary); font-size: 13px;">
+                        请使用B站APP扫描二维码登录
+                    </div>
+                    <div class="modal-actions" style="justify-content: center;">
+                        <button class="btn btn-primary" onclick="refreshQrcode()">刷新二维码</button>
+                    </div>
                 </div>
-                <div
-                    style="
-                        text-align: center;
-                        margin: 16px 0;
-                        color: var(--text-secondary);
-                    "
-                >
-                    请使用B站APP扫描二维码登录
+
+                <!-- SMS Login Content -->
+                <div id="method-sms" class="login-method-content">
+                    <div class="form-group">
+                        <label class="form-label" for="phone-login-phone">手机号</label>
+                        <input type="tel" class="form-input" id="phone-login-phone" placeholder="请输入手机号" />
+                    </div>
+                    <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label class="form-label" for="phone-login-sms-code">验证码</label>
+                            <input type="text" class="form-input" id="phone-login-sms-code" placeholder="请输入验证码" />
+                        </div>
+                        <button class="btn btn-secondary" id="phone-login-send-sms-btn" style="margin-bottom: 0;">获取验证码</button>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" id="phone-login-submit-btn" style="width: 100%; margin-right: 0;">登录</button>
+                    </div>
                 </div>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" onclick="refreshQrcode()">
-                        刷新二维码
-                    </button>
-                    <button class="btn btn-danger" onclick="closeQrcodeModal()">
-                        取消
-                    </button>
+
+                <!-- Password Login Content -->
+                <div id="method-password" class="login-method-content">
+                    <div class="form-group">
+                        <label class="form-label" for="password-login-username">账号</label>
+                        <input type="text" class="form-input" id="password-login-username" placeholder="手机号/邮箱/用户名" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="password-login-password">密码</label>
+                        <input type="password" class="form-input" id="password-login-password" placeholder="请输入密码" />
+                    </div>
+                    <div id="password-login-error" class="error-message" style="display: none; color: var(--error-color); margin-bottom: 10px;"></div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" id="password-login-submit-btn" style="width: 100%; margin-right: 0;">登录</button>
+                    </div>
+                </div>
+
+                <!-- Cookie Login Content -->
+                <div id="method-cookie" class="login-method-content">
+                    <div class="form-group">
+                        <label class="form-label">SESSDATA / Cookie</label>
+                        <textarea class="form-input" id="account-cookie" placeholder="请输入完整Cookie或SESSDATA" rows="4"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" onclick="submitAddAccount()" style="width: 100%; margin-right: 0;">添加</button>
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="border-top: 1px solid var(--border-color); margin-top: 15px; padding-top: 15px;">
+                    <button class="btn btn-danger" onclick="closeAddAccountModal()" style="margin-bottom: 0;">关闭</button>
                 </div>
             </div>
         </div>
@@ -908,49 +921,7 @@
             </div>
         </div>
 
-        <div id="phone-login-modal" class="modal">
-            <div class="modal-content">
-                <h3 class="modal-title">手机号登录</h3>
-                <div class="form-group">
-                    <label class="form-label" for="phone-login-phone">手机号</label>
-                    <input
-                        type="tel"
-                        class="form-input"
-                        id="phone-login-phone"
-                        placeholder="请输入手机号"
-                    />
-                </div>
-                <div class="form-group" style="display: flex; gap: 10px;">
-                    <div style="flex: 1;">
-                        <label class="form-label" for="phone-login-sms-code">短信验证码</label>
-                        <input
-                            type="text"
-                            class="form-input"
-                            id="phone-login-sms-code"
-                            placeholder="请输入短信验证码"
-                        />
-                    </div>
-                    <button class="btn btn-secondary" id="phone-login-send-sms-btn" style="align-self: flex-end; margin-bottom: 1px;">
-                        获取验证码
-                    </button>
-                </div>
-                <div class="modal-actions">
-                    <button
-                        class="btn btn-primary"
-                        id="phone-login-submit-btn"
-                    >
-                        登录
-                    </button>
-                    <button
-                        class="btn btn-danger"
-                        onclick="closePhoneLoginModal()"
-                    >
-                        取消
-                    </button>
-                </div>
-            </div>
-        </div>
-
+        <div id="phone-login-modal" class="modal"></div> <!-- Keep as placeholder if needed by JS or just remove -->
         <script src="app.js"></script>
     </body>
 </html>

@@ -520,11 +520,6 @@ async fn leak_grab_ticket_mode(
                 );
                 grab_ticket_req.ticket_id = ticket_data.id.to_string();
                 grab_ticket_req.biliticket.select_ticket_id = Some(ticket_data.id.to_string());
-                cpdd = Arc::new(Mutex::new(CTokenGenerator::new(
-                    project_data.data.sale_begin as i64,
-                    0,
-                    rng.gen_range(2000..10000),
-                )));
 
                 let token_result = get_ticket_token(
                     cookie_manager.clone(),

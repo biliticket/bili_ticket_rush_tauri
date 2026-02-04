@@ -65,9 +65,21 @@ jobs:
           rm -rf target/output
           mkdir -p target/output
           cp target/${{matrix.debug}}/frontend target/output/${{ env.build_type }}-${{ matrix.build }}
-      - name: Compress artifacts with UPX
+      - name: Compress artifacts with UPX (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           find target/output -type f -exec upx --best --lzma {} \; || true
+      - name: Compress artifacts with UPX (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Get-ChildItem -Path target/output -File -Recurse | ForEach-Object {
+              try {
+                  upx --best --lzma "$($_.FullName)"
+              } catch {
+                  Write-Warning "Failed to compress $($_.FullName): $($_.Exception.Message)"
+              }
+          }
+        shell: pwsh
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
