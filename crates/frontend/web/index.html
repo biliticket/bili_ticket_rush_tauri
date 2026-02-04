@@ -680,7 +680,12 @@
                 <div id="method-sms" class="login-method-content">
                     <div class="form-group">
                         <label class="form-label" for="phone-login-phone">手机号</label>
-                        <input type="tel" class="form-input" id="phone-login-phone" placeholder="请输入手机号" />
+                        <div style="display: flex; gap: 10px;">
+                            <select id="phone-login-cid" class="form-input" style="width: 100px;">
+                                <option value="86">中国 +86</option>
+                            </select>
+                            <input type="tel" class="form-input" id="phone-login-phone" placeholder="请输入手机号" style="flex: 1;" />
+                        </div>
                     </div>
                     <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
                         <div style="flex: 1;">

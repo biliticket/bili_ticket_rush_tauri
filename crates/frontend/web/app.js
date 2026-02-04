@@ -174,6 +174,7 @@ function showWarning(message) {
 
 async function requestSmsCode() {
   const phoneNumber = document.getElementById("phone-login-phone").value.trim();
+  const cid = parseInt(document.getElementById("phone-login-cid").value) || 86;
   if (!phoneNumber) {
     showWarning("请输入手机号");
     return;
@@ -200,7 +201,7 @@ async function requestSmsCode() {
     if (!invoke) {
       throw new Error("Tauri invoke function not available");
     }
-    const result = await invoke("send_loginsms_command", { phoneNumber });
+    const result = await invoke("send_loginsms_command", { phoneNumber, cid });
     smsCaptchaKey = result;
     showSuccess("短信验证码已发送！");
   } catch (error) {
@@ -215,6 +216,7 @@ async function requestSmsCode() {
 async function submitPhoneLogin() {
   const phoneNumber = document.getElementById("phone-login-phone").value.trim();
   const smsCode = document.getElementById("phone-login-sms-code").value.trim();
+  const cid = parseInt(document.getElementById("phone-login-cid").value) || 86;
 
   if (!phoneNumber || !smsCode) {
     showWarning("请输入手机号和验证码");
@@ -229,7 +231,7 @@ async function submitPhoneLogin() {
     if (!invoke) {
       throw new Error("Tauri invoke function not available");
     }
-    const cookies = await invoke("submit_loginsms_command", { phoneNumber, smsCode, captchaKey: smsCaptchaKey });
+    const cookies = await invoke("submit_loginsms_command", { phoneNumber, cid, smsCode, captchaKey: smsCaptchaKey });
 
     await invoke("add_account_by_cookie", { cookie: cookies });
     showSuccess("手机号登录成功！账号已添加");
@@ -1151,12 +1153,31 @@ function switchTab(tabName) {
   }
 }
 
+async function loadCountryList() {
+  const cidSelect = document.getElementById("phone-login-cid");
+  if (!cidSelect) return;
+
+  try {
+    if (!invoke) return;
+    const countries = await invoke("get_country_list_command");
+    if (countries && countries.length > 0) {
+      cidSelect.innerHTML = countries.map(c => 
+        `<option value="${c.cid}" ${c.cid === 86 ? 'selected' : ''}>${c.name} +${c.cid}</option>`
+      ).join("");
+    }
+  } catch (error) {
+    console.error("加载地区列表失败:", error);
+    cidSelect.innerHTML = '<option value="86">+86</option>';
+  }
+}
+
 async function init() {
   updateUptime();
   await updateSystemInfo();
   await loadAccounts();
   await loadSettings();
   await initLogs();
+  await loadCountryList();
   setInterval(async () => {
     if (document.getElementById("tab-accounts")?.classList.contains("active")) await reloadAccounts();
   }, 30000);

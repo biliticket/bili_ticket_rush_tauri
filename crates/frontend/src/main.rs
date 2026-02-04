@@ -337,7 +337,16 @@ fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, String>
 }
 
 #[tauri::command]
-fn send_loginsms_command(state: State<'_, AppState>, phone_number: String) -> Result<String, String> {
+async fn get_country_list_command(state: State<'_, AppState>) -> Result<Vec<common::login::Country>, String> {
+    let client = {
+        let state = state.inner.lock().map_err(|_| "state lock failed".to_string())?;
+        state.client.clone()
+    };
+    common::login::get_country_list(&client).await
+}
+
+#[tauri::command]
+fn send_loginsms_command(state: State<'_, AppState>, phone_number: String, cid: i32) -> Result<String, String> {
     let state = state
         .inner
         .lock()
@@ -345,6 +354,7 @@ fn send_loginsms_command(state: State<'_, AppState>, phone_number: String) -> Re
 
     let request = TaskRequest::LoginSmsRequest(common::taskmanager::LoginSmsRequest {
         phone: phone_number.clone(),
+        cid,
         client: state.client.clone(),
         custom_config: state.custom_config.clone(),
         local_captcha: common::captcha::LocalCaptcha::new(),
@@ -364,6 +374,7 @@ fn send_loginsms_command(state: State<'_, AppState>, phone_number: String) -> Re
 fn submit_loginsms_command(
     state: State<'_, AppState>,
     phone_number: String,
+    cid: i32,
     captcha_key: String,
     sms_code: String,
 ) -> Result<String, String> {
@@ -374,6 +385,7 @@ fn submit_loginsms_command(
 
     let request = TaskRequest::SubmitLoginSmsRequest(common::taskmanager::SubmitLoginSmsRequest {
         phone: phone_number,
+        cid,
         code: sms_code,
         captcha_key,
         client: state.client.clone(),
@@ -1688,7 +1700,8 @@ fn main() {
             poll_qrcode_status,
             set_buyer_type,
             set_no_bind_buyer_info,
-            clear_no_bind_buyer_info
+            clear_no_bind_buyer_info,
+            get_country_list_command
         ])
         .run(tauri::generate_context!())
         .expect("tauri run failed");

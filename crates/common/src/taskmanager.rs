@@ -288,6 +288,7 @@ pub struct QrCodeLoginRequest {
 
 pub struct LoginSmsRequest {
     pub phone: String,
+    pub cid: i32,
     pub client: Client,
     pub custom_config: CustomConfig,
     pub local_captcha: LocalCaptcha,
@@ -295,6 +296,7 @@ pub struct LoginSmsRequest {
 
 pub struct SubmitLoginSmsRequest {
     pub phone: String,
+    pub cid: i32,
     pub code: String,
     pub captcha_key: String,
     pub client: Client,

@@ -39,12 +39,13 @@ pub async fn handle_login_sms_request(
 ) {
     let task_id = uuid::Uuid::new_v4().to_string();
     let phone = login_sms_req.phone.clone();
+    let cid = login_sms_req.cid;
     let client = login_sms_req.client.clone();
     let custom_config = login_sms_req.custom_config.clone();
     let local_captcha = login_sms_req.local_captcha.clone();
 
-    log::info!("开始发送短信验证码 ID: {}", task_id);
-    let response = send_loginsms(&phone, &client, custom_config, local_captcha).await;
+    log::info!("开始发送短信验证码 ID: {}, CID: {}", task_id, cid);
+    let response = send_loginsms(&phone, cid, &client, custom_config, local_captcha).await;
     log::info!("完成发送短信验证码 ID: {}", task_id);
     let success = response.is_ok();
     let message = match &response {
@@ -78,13 +79,14 @@ pub async fn handle_submit_login_sms_request(
 ) {
     let task_id = uuid::Uuid::new_v4().to_string();
     let phone = login_sms_req.phone.clone();
+    let cid = login_sms_req.cid;
     let client = login_sms_req.client.clone();
     let captcha_key = login_sms_req.captcha_key.clone();
     let code = login_sms_req.code.clone();
 
-    log::info!("短信验证码登录进行中 ID: {}", task_id);
+    log::info!("短信验证码登录进行中 ID: {}, CID: {}", task_id, cid);
 
-    let response = sms_login(&phone, &code, &captcha_key, &client).await;
+    let response = sms_login(&phone, cid, &code, &captcha_key, &client).await;
     let success = response.is_ok();
     let message: String = match &response {
         Ok(msg) => msg.clone(),
@@ -139,12 +141,6 @@ pub async fn handle_password_login_request(
         }
     };
     let cookie = response.ok();
-
-    log::info!(
-        "Password login task completed for user {}: {}",
-        username,
-        if success { "Success" } else { "Failed" }
-    );
 
     let task_result = TaskResult::PasswordLoginResult(PasswordLoginResult {
         task_id,

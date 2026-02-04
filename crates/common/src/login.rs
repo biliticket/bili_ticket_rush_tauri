@@ -212,8 +212,53 @@ async fn get_pubkey_and_salt(client: &Client) -> Result<(String, String), String
     }
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct Country {
+    pub name: String,
+    pub cid: i32,
+}
+
+pub async fn get_country_list(client: &Client) -> Result<Vec<Country>, String> {
+    let response = request_get(
+        client,
+        "https://passport.bilibili.com/web/generic/country/list",
+        None,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let json = response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if json["code"].as_i64() == Some(0) {
+        let mut countries = Vec::new();
+        
+        let process_list = |list: &Vec<serde_json::Value>, countries: &mut Vec<Country>| {
+            for item in list {
+                let name = item["cname"].as_str().unwrap_or("").to_string();
+                let cid_str = item["country_id"].as_str().unwrap_or("86");
+                let cid = cid_str.parse::<i32>().unwrap_or(86);
+                countries.push(Country { name, cid });
+            }
+        };
+
+        if let Some(common_list) = json["data"]["common"].as_array() {
+            process_list(common_list, &mut countries);
+        }
+        if let Some(others_list) = json["data"]["others"].as_array() {
+            process_list(others_list, &mut countries);
+        }
+        Ok(countries)
+    } else {
+        Err(json["message"].as_str().unwrap_or("获取国家列表失败").to_string())
+    }
+}
+
 pub async fn send_loginsms(
     phone: &str,
+    cid: i32,
     client: &Client,
     custom_config: CustomConfig,
     local_captcha: LocalCaptcha,
@@ -258,7 +303,7 @@ pub async fn send_loginsms(
                 serde_json::from_str(&result_str).map_err(|e| e.to_string())?;
 
             let json_data = json!({
-            "cid": 86,
+            "cid": cid,
             "tel": phone,
             "token": token,
             "source":"main_mini",
@@ -303,12 +348,13 @@ pub async fn send_loginsms(
 
 pub async fn sms_login(
     phone: &str,
+    cid: i32,
     sms_code: &str,
     captcha_key: &str,
     client: &Client,
 ) -> Result<String, String> {
     let data = serde_json::json!({
-        "cid": 86,
+        "cid": cid,
         "tel": phone,
         "code": sms_code,
         "source":"main_mini",
