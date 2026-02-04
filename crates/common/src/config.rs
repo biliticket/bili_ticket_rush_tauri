@@ -1,10 +1,5 @@
 use crate::account::Account;
-use aes::Aes128;
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD as BASE64;
-use block_modes::block_padding::Pkcs7;
-use block_modes::{BlockMode, Cbc};
-use rand::Rng;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
@@ -71,39 +66,14 @@ impl BtrConfig {
         }
 
         let raw_context = fs::read_to_string("./config")?;
-        let content: Vec<&str> = raw_context.split('%').collect();
-        if content.len() != 2 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Invalid config file format",
-            ));
-        }
-
-        let iv = BASE64
-            .decode(content[0].trim())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let decoded = BASE64
-            .decode(content[1].trim())
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-        let decrypted = decrypt_data(iv, &decoded)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        let plain_text = String::from_utf8(decrypted)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-        serde_json::from_str(&plain_text).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        serde_json::from_str(&raw_context).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
     pub fn save_config(&self) -> io::Result<()> {
         let json_str = serde_json::to_string_pretty(self)?;
-        let (iv, encrypted) = encrypt_data(json_str.as_bytes())
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let encoded_iv = BASE64.encode(&iv);
-        let encoded_encrypted = BASE64.encode(&encrypted);
-        let final_content = format!("{}%{}", encoded_iv, encoded_encrypted);
 
         let temp_path = "./config.tmp";
-        fs::write(temp_path, final_content)?;
+        fs::write(temp_path, json_str)?;
         fs::rename(temp_path, "./config")
     }
 
@@ -157,15 +127,7 @@ impl Default for PushConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            enabled_methods: vec![
-                "bark".to_string(),
-                "pushplus".to_string(),
-                "fangtang".to_string(),
-                "dingtalk".to_string(),
-                "wechat".to_string(),
-                "smtp".to_string(),
-                "gotify".to_string(),
-            ],
+            enabled_methods: Vec::new(),
             bark_token: String::new(),
             pushplus_token: String::new(),
             fangtang_token: String::new(),
@@ -206,30 +168,4 @@ impl Default for CustomConfig {
             preinput_phone2: String::new(),
         }
     }
-}
-
-// --- Encryption Functions ---
-fn gen_machine_id_bytes_128b() -> Vec<u8> {
-    let id: String = machine_uid::get().unwrap_or_else(|_| "0123456789abcdef".to_string());
-    let mut padded_id = id.into_bytes();
-    padded_id.resize(16, 0);
-    padded_id[..16].to_vec()
-}
-
-fn encrypt_data(data: &[u8]) -> Result<(Vec<u8>, Vec<u8>), block_modes::BlockModeError> {
-    type Aes128Cbc = Cbc<Aes128, Pkcs7>;
-    let mut iv = [0u8; 16];
-    rand::thread_rng().fill(&mut iv[..]);
-    let cipher = Aes128Cbc::new_from_slices(&gen_machine_id_bytes_128b(), &iv)
-        .map_err(|_| block_modes::BlockModeError)?;
-
-    Ok((iv.to_vec(), cipher.encrypt_vec(data)))
-}
-
-fn decrypt_data(iv: Vec<u8>, encrypted: &[u8]) -> Result<Vec<u8>, block_modes::BlockModeError> {
-    type Aes128Cbc = Cbc<Aes128, Pkcs7>;
-    let cipher = Aes128Cbc::new_from_slices(&gen_machine_id_bytes_128b(), &iv)
-        .map_err(|_| block_modes::BlockModeError)?;
-
-    cipher.decrypt_vec(encrypted)
 }

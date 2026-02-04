@@ -1,12 +1,63 @@
 let invoke = null;
 
+let smsCaptchaKey = null;
 let qrcodePollingInterval = null;
+let grabResultPollingInterval = null;
 let currentTaskId = null;
+let isGrabTaskRunning = false; // New global state variable
 let monitorStats = {
   attempts: 0,
   success: 0,
   failures: 0,
 };
+
+function showPhoneLoginModal() {
+  document.getElementById("phone-login-modal").classList.add("active");
+  // Optionally clear previous inputs
+  document.getElementById("phone-login-phone").value = "";
+  document.getElementById("phone-login-sms-code").value = "";
+  smsCaptchaKey = null; // Clear captcha key on opening modal
+}
+
+function closePhoneLoginModal() {
+  document.getElementById("phone-login-modal").classList.remove("active");
+  // Reset any countdowns or states if necessary
+  smsCaptchaKey = null;
+}
+
+function showGrabSuccessModal(result) {
+    const modal = document.getElementById('grab-success-modal');
+    if (!modal) return;
+
+    const confirmResult = result.confirm_result;
+    const payResult = result.pay_result;
+
+    if (confirmResult) {
+        document.getElementById('success-project-name').textContent = confirmResult.project_name || 'N/A';
+        document.getElementById('success-screen-name').textContent = confirmResult.screen_name || 'N/A';
+        if (confirmResult.ticket_info) {
+            document.getElementById('success-ticket-name').textContent = confirmResult.ticket_info.name || 'N/A';
+            document.getElementById('success-ticket-price').textContent = ((confirmResult.ticket_info.price * confirmResult.count) / 100).toFixed(2) || '0.00';
+        }
+    }
+
+    if (payResult && payResult.code_url) {
+        const qrCodeApiUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(payResult.code_url)}&size=200x200`;
+        document.getElementById('payment-qrcode-img').src = qrCodeApiUrl;
+    } else {
+        document.getElementById('payment-qrcode-img').src = '';
+    }
+
+    modal.classList.add('active');
+}
+
+function closeGrabSuccessModal() {
+    const modal = document.getElementById('grab-success-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
 
 function showNotification(message, type = "info", duration = 5000) {
   const container = document.getElementById("notification-container");
@@ -59,6 +110,81 @@ function showWarning(message) {
   showNotification(message, "warning", 5000);
 }
 
+
+async function requestSmsCode() {
+  const phoneNumber = document.getElementById("phone-login-phone").value.trim();
+  if (!phoneNumber) {
+    showWarning("请输入手机号");
+    return;
+  }
+  const phoneRegex = /^1[3-9]\d{9}$/;
+  if (!phoneRegex.test(phoneNumber)) {
+    showWarning("请输入有效的手机号");
+    return;
+  }
+
+  const sendSmsButton = document.getElementById("phone-login-send-sms-btn");
+  sendSmsButton.disabled = true;
+  const originalButtonText = sendSmsButton.textContent;
+  let countdown = 60;
+  sendSmsButton.textContent = `重新发送 (${countdown}s)`;
+
+  const countdownInterval = setInterval(() => {
+    countdown--;
+    if (countdown > 0) {
+      sendSmsButton.textContent = `重新发送 (${countdown}s)`;
+    } else {
+      clearInterval(countdownInterval);
+      sendSmsButton.textContent = originalButtonText;
+      sendSmsButton.disabled = false;
+    }
+  }, 1000);
+
+  try {
+    if (!invoke) {
+      throw new Error("Tauri invoke function not available");
+    }
+    const result = await invoke("send_loginsms_command", { phoneNumber });
+    smsCaptchaKey = result; // Store the captcha key
+    showSuccess("短信验证码已发送！");
+  } catch (error) {
+    console.error("请求短信验证码失败:", error);
+    showError("请求短信验证码失败: " + error);
+    clearInterval(countdownInterval); // Stop countdown on error
+    sendSmsButton.textContent = originalButtonText;
+    sendSmsButton.disabled = false;
+  }
+}
+
+async function submitPhoneLogin() {
+  const phoneNumber = document.getElementById("phone-login-phone").value.trim();
+  const smsCode = document.getElementById("phone-login-sms-code").value.trim();
+
+  if (!phoneNumber || !smsCode) {
+    showWarning("请输入手机号和验证码");
+    return;
+  }
+  if (!smsCaptchaKey) {
+    showWarning("请先获取短信验证码");
+    return;
+  }
+
+  try {
+    if (!invoke) {
+      throw new Error("Tauri invoke function not available");
+    }
+    const cookies = await invoke("submit_loginsms_command", { phoneNumber, smsCode, captchaKey: smsCaptchaKey });
+
+    await invoke("add_account_by_cookie", { cookie: cookies });
+    showSuccess("手机号登录成功！账号已添加");
+    closePhoneLoginModal();
+    await reloadAccounts();
+  } catch (error) {
+    console.error("手机号登录失败:", error);
+    showError("手机号登录失败: " + error);
+  }
+}
+
 function initializeEventListeners() {
   document.querySelectorAll(".nav-tab").forEach((tab) => {
     const tabName = tab.getAttribute("data-tab");
@@ -75,14 +201,11 @@ function initializeEventListeners() {
     "add-account-btn": showAddAccountModal,
     "reload-accounts-btn": reloadAccounts,
     "qrcode-login-btn": showQrcodeLoginModal,
-
+    "phone-login-btn": showPhoneLoginModal,
+    "phone-login-send-sms-btn": requestSmsCode,
+    "phone-login-submit-btn": submitPhoneLogin,
     "start-grab-btn": startGrab,
     "stop-grab-btn": stopGrab,
-    "refresh-monitor-btn": refreshMonitor,
-
-    "load-logs-btn": loadLogs,
-    "clear-logs-btn": clearLogs,
-    "export-logs-btn": exportLogs,
   };
 
   Object.keys(buttonIds).forEach((id) => {
@@ -103,11 +226,17 @@ function initializeEventListeners() {
   });
 }
 
+
+
 document.addEventListener("DOMContentLoaded", function () {
   console.log("DOM loaded, initializing application...");
 
   initializeTabSwitching();
   initializeEventListeners();
+
+  // Set initial button states
+  document.getElementById("start-grab-btn").disabled = false;
+  document.getElementById("stop-grab-btn").disabled = true;
 
   let attempts = 0;
   const maxAttempts = 20;
@@ -233,7 +362,6 @@ function closeAddProjectModal() {
 
   document.getElementById("project-id").value = "";
   document.getElementById("project-name").value = "";
-  document.getElementById("project-url").value = "";
 }
 
 function closeAddAccountModal() {
@@ -356,9 +484,8 @@ async function submitAddAccount() {
 async function submitAddProject() {
   const projectId = document.getElementById("project-id").value;
   const projectName = document.getElementById("project-name").value;
-  const projectUrl = document.getElementById("project-url").value;
 
-  if (!projectId || !projectName || !projectUrl) {
+  if (!projectId || !projectName) {
     showWarning("请填写所有字段");
     return;
   }
@@ -373,18 +500,9 @@ async function submitAddProject() {
       return;
     }
 
-    if (
-      !projectUrl.startsWith("http://") &&
-      !projectUrl.startsWith("https://")
-    ) {
-      showWarning("请输入有效的URL（以http://或https://开头）");
-      return;
-    }
-
     await invoke("add_project", {
       id: projectId,
       name: projectName,
-      url: projectUrl,
     });
 
     showSuccess("添加项目成功！");
@@ -1034,17 +1152,77 @@ async function startGrab() {
       throw new Error("Tauri invoke function not available");
     }
 
-    await invoke("set_grab_mode", { mode: 1 });
-    const taskId = await invoke("start_grab_ticket");
+    if (isGrabTaskRunning) {
+        showWarning("抢票任务已在运行中，请勿重复启动。");
+        return;
+    }
 
-    currentTaskId = taskId;
+    if (grabResultPollingInterval) {
+        clearInterval(grabResultPollingInterval);
+    }
 
-    document.getElementById("monitor-status").textContent = "运行中";
-    document.getElementById("monitor-status").style.color =
-      "var(--success-color)";
+    isGrabTaskRunning = true;
+    document.getElementById("start-grab-btn").disabled = true;
+    document.getElementById("stop-grab-btn").disabled = false;
 
-    showSuccess("开始抢票！任务ID: " + taskId);
-    await refreshMonitor();
+    try {
+        const state = await invoke("get_state");
+        const configuredGrabMode = state.grab_mode;
+
+        await invoke("set_grab_mode", { mode: configuredGrabMode });
+        const taskId = await invoke("start_grab_ticket");
+
+        currentTaskId = taskId;
+
+        document.getElementById("monitor-status").textContent = "运行中";
+        document.getElementById("monitor-status").style.color =
+        "var(--success-color)";
+
+        showSuccess("开始抢票! 任务ID: " + taskId);
+
+    grabResultPollingInterval = setInterval(async () => {
+        try {
+            const results = await invoke("poll_task_results");
+
+            // Check for success result
+            const successResult = results.find(r => 
+                r.type === "GrabTicketResult" && 
+                r.success === true &&
+                r.task_id === currentTaskId
+            );
+
+            if (successResult) {
+                console.log("Grab ticket success!", successResult);
+                showGrabSuccessModal(successResult);
+                stopGrab(); // This will also clear the interval and reset buttons
+                return;
+            }
+
+            const pendingPaymentResult = results.find(r =>
+                r.type === "GrabTicketResult" &&
+                r.success === false &&
+                r.task_id === currentTaskId &&
+                r.message.includes("购票人存在待付款订单")
+            );
+
+            if (pendingPaymentResult) {
+                console.error("Pending payment order found:", pendingPaymentResult.message);
+                showError(pendingPaymentResult.message);
+                stopGrab();
+                return;
+            }
+
+        } catch (pollError) {
+            console.error("Error polling for task results:", pollError);
+        }
+    }, 2000);
+    } catch (error) {
+        isGrabTaskRunning = false;
+        document.getElementById("start-grab-btn").disabled = false;
+        document.getElementById("stop-grab-btn").disabled = true;
+        throw error;
+    }
+
   } catch (error) {
     console.error("启动抢票失败:", error);
     showError("启动失败: " + error);
@@ -1055,6 +1233,11 @@ async function stopGrab() {
   try {
     if (!invoke) {
       throw new Error("Tauri invoke function not available");
+    }
+
+    if (grabResultPollingInterval) {
+        clearInterval(grabResultPollingInterval);
+        grabResultPollingInterval = null;
     }
 
     if (currentTaskId) {
@@ -1072,45 +1255,13 @@ async function stopGrab() {
     document.getElementById("monitor-status").textContent = "已停止";
     document.getElementById("monitor-status").style.color =
       "var(--error-color)";
+
+    isGrabTaskRunning = false;
+    document.getElementById("start-grab-btn").disabled = false;
+    document.getElementById("stop-grab-btn").disabled = true;
+
   } catch (error) {
     showError("停止失败: " + error);
-  }
-}
-
-async function refreshMonitor() {
-  try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
-    const state = await invoke("get_state");
-    document.getElementById("monitor-status").textContent =
-      state.running_status;
-
-    const statusElem = document.getElementById("monitor-status");
-    if (
-      state.running_status.includes("运行") ||
-      state.running_status.includes("抢票")
-    ) {
-      statusElem.style.color = "var(--success-color)";
-      statusElem.style.fontWeight = "bold";
-    } else if (state.running_status.includes("停止")) {
-      statusElem.style.color = "var(--error-color)";
-      statusElem.style.fontWeight = "normal";
-    } else {
-      statusElem.style.color = "var(--text-primary)";
-      statusElem.style.fontWeight = "normal";
-    }
-
-    const stats = await invoke("get_monitor_stats");
-    if (stats) {
-      monitorStats.attempts = stats.attempts || 0;
-      monitorStats.success = stats.success || 0;
-      monitorStats.failures = stats.failures || 0;
-      updateMonitorStats();
-    }
-  } catch (error) {
-    console.error("刷新监控失败:", error);
   }
 }
 
@@ -1146,7 +1297,6 @@ async function loadSettings() {
       document.getElementById("wechat-token").value =
         state.push_config.wechat_token || "";
 
-      // 设置多选框状态
       if (state.push_config.enabled_methods) {
         document.getElementById("push-method-bark").checked =
           state.push_config.enabled_methods.includes("bark");
@@ -1317,42 +1467,6 @@ async function loadLogs() {
   }
 }
 
-async function clearLogs() {
-  if (!confirm("确定要清空所有日志吗？此操作不可撤销！")) return;
-  try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-
-    await invoke("clear_logs");
-    showSuccess("日志已清空");
-    await loadLogs();
-  } catch (error) {
-    showError("设置失败: " + error);
-  }
-}
-
-async function exportLogs() {
-  try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-    const logs = await invoke("get_logs");
-    const logText = logs.join("\n");
-    const blob = new Blob([logText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `btr_logs_${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    showError("设置失败: " + error);
-  }
-}
-
 function updateUptime() {
   const startTime = Date.now();
   setInterval(() => {
@@ -1372,24 +1486,6 @@ function updateUptime() {
   }, 60000);
 }
 
-function updateMonitorStats() {
-  document.getElementById("monitor-attempts").textContent =
-    monitorStats.attempts;
-  document.getElementById("monitor-success").textContent = monitorStats.success;
-  document.getElementById("monitor-failures").textContent =
-    monitorStats.failures;
-}
-
-function resetMonitorStats() {
-  monitorStats = {
-    attempts: 0,
-    success: 0,
-    failures: 0,
-  };
-  updateMonitorStats();
-}
-
-// Initialization
 async function init() {
   console.log("Starting application initialization...");
 
@@ -1401,22 +1497,12 @@ async function init() {
     await loadSettings();
     setupPushSettingsEventListeners();
 
-    resetMonitorStats();
-
-    // 初始化抢票日志
     await initGrabLogs();
 
     setInterval(() => {
-      const logsTab = document.getElementById("tab-logs");
-      if (logsTab && logsTab.classList.contains("active")) {
-        loadLogs();
-      }
-    }, 5000);
-
-    setInterval(() => {
-      const monitorTab = document.getElementById("tab-monitor");
-      if (monitorTab && monitorTab.classList.contains("active")) {
-        refreshMonitor();
+      const grabTab = document.getElementById("tab-grab");
+      if (grabTab && grabTab.classList.contains("active")) {
+        loadGrabLogs();
       }
     }, 3000);
 
@@ -1481,20 +1567,11 @@ function switchTab(tabName) {
     targetContent.classList.add("active");
     console.log(`Successfully switched to tab: ${tabName}`);
 
-    if (tabName === "projects") {
+    if (tabName === "grab") {
+        loadGrabLogs();
+    } else if (tabName === "projects") {
       if (typeof loadProjects === "function") {
         loadProjects();
-      }
-    } else if (tabName === "monitor") {
-      if (typeof refreshMonitor === "function") {
-        refreshMonitor();
-      }
-      if (typeof resetMonitorStats === "function") {
-        resetMonitorStats();
-      }
-    } else if (tabName === "logs") {
-      if (typeof loadLogs === "function") {
-        loadLogs();
       }
     } else if (tabName === "settings") {
       if (typeof loadSettings === "function") {
@@ -1530,24 +1607,6 @@ async function testPush() {
     showError("发送失败: " + error);
   }
 }
-
-document.addEventListener("keydown", function (e) {
-  if (e.ctrlKey && e.key >= "1" && e.key <= "7") {
-    e.preventDefault();
-    const tabIndex = parseInt(e.key) - 1;
-    const tabs = document.querySelectorAll(".nav-tab");
-    if (tabIndex < tabs.length) {
-      const tabName = tabs[tabIndex].dataset.tab;
-      switchTab(tabName);
-    }
-  }
-
-  if (e.key === "Escape") {
-    closeAddAccountModal();
-    closeQrcodeModal();
-    closeAddProjectModal();
-  }
-});
 
 let grabLogs = [];
 let autoScrollEnabled = true;
@@ -1673,53 +1732,18 @@ async function clearGrabLogs() {
   }
 }
 
-async function exportGrabLogs() {
-  try {
-    const logs = grabLogs.join("\n");
-    const blob = new Blob([logs], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `grab_logs_${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showSuccess("抢票日志导出成功");
-  } catch (error) {
-    showError("导出抢票日志失败: " + error);
-  }
-}
-
 function updatePushSettingsVisibility() {
-  const methods = [
-    "bark",
-    "pushplus",
-    "fangtang",
-    "dingtalk",
-    "wechat",
-    "gotify",
-  ];
-  methods.forEach((method) => {
-    const checkbox = document.getElementById(`push-method-${method}`);
+  document.querySelectorAll('[id^="push-method-"]').forEach((checkbox) => {
+    const method = checkbox.id.replace('push-method-', '');
     const settings = document.getElementById(`${method}-settings`);
-    if (checkbox && settings) {
+    if (settings) {
       settings.style.display = checkbox.checked ? "block" : "none";
     }
   });
 }
 
 function setupPushSettingsEventListeners() {
-  const methods = [
-    "bark",
-    "pushplus",
-    "fangtang",
-    "dingtalk",
-    "wechat",
-    "gotify",
-  ];
-  methods.forEach((method) => {
-    const checkbox = document.getElementById(`push-method-${method}`);
+  document.querySelectorAll('[id^="push-method-"]').forEach((checkbox) => {
     if (checkbox) {
       checkbox.addEventListener("change", updatePushSettingsVisibility);
     }
@@ -1751,9 +1775,6 @@ function setupGrabLogsEventListeners() {
   document
     .getElementById("clear-grab-logs-btn")
     ?.addEventListener("click", clearGrabLogs);
-  document
-    .getElementById("export-grab-logs-btn")
-    ?.addEventListener("click", exportGrabLogs);
   document
     .getElementById("auto-scroll-btn")
     ?.addEventListener("click", toggleAutoScroll);
@@ -1795,14 +1816,6 @@ function setupGrabLogsEventListeners() {
 async function initGrabLogs() {
   setupGrabLogsEventListeners();
   await loadGrabLogs();
-
-  // 设置自动刷新
-  setInterval(async () => {
-    const grabLogsTab = document.getElementById("tab-grab-logs");
-    if (grabLogsTab.classList.contains("active")) {
-      await loadGrabLogs();
-    }
-  }, 3000); // 每3秒刷新一次
 }
 
 window.addEventListener("beforeunload", function () {

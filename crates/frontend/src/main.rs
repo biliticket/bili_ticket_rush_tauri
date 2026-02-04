@@ -337,14 +337,14 @@ fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, String>
 }
 
 #[tauri::command]
-fn sms_login(state: State<'_, AppState>, phone: String) -> Result<String, String> {
+fn send_loginsms_command(state: State<'_, AppState>, phone_number: String) -> Result<String, String> {
     let state = state
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
 
     let request = TaskRequest::LoginSmsRequest(common::taskmanager::LoginSmsRequest {
-        phone: phone.clone(),
+        phone: phone_number.clone(),
         client: state.client.clone(),
         custom_config: state.custom_config.clone(),
         local_captcha: common::captcha::LocalCaptcha::new(),
@@ -355,14 +355,15 @@ fn sms_login(state: State<'_, AppState>, phone: String) -> Result<String, String
         .lock()
         .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(request)
-        .map_err(|e| format!("submit sms login failed: {}", e));
+        .map_err(|e| format!("submit sms login request failed: {}", e));
 
     result
 }
 
 #[tauri::command]
-fn submit_sms_code(
+fn submit_loginsms_command(
     state: State<'_, AppState>,
+    phone_number: String,
     captcha_key: String,
     sms_code: String,
 ) -> Result<String, String> {
@@ -372,7 +373,7 @@ fn submit_sms_code(
         .map_err(|_| "state lock failed".to_string())?;
 
     let request = TaskRequest::SubmitLoginSmsRequest(common::taskmanager::SubmitLoginSmsRequest {
-        phone: "".to_string(),
+        phone: phone_number,
         code: sms_code,
         captcha_key,
         client: state.client.clone(),
@@ -383,7 +384,7 @@ fn submit_sms_code(
         .lock()
         .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(request)
-        .map_err(|e| format!("submit sms code failed: {}", e));
+        .map_err(|e| format!("submit sms login failed: {}", e));
 
     result
 }
@@ -564,6 +565,7 @@ fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
             }),
             common::taskmanager::TaskResult::GrabTicketResult(r) => json!({
                 "type": "GrabTicketResult",
+                "task_id": r.task_id,
                 "success": r.success,
                 "order_id": r.order_id,
                 "message": r.message,
@@ -1312,12 +1314,14 @@ fn add_project(
     state: State<'_, AppState>,
     id: String,
     name: String,
-    url: String,
 ) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
+
+    // Construct the URL from the project ID
+    let url = format!("https://show.bilibili.com/platform/detail.html?id={}", id);
 
     // 创建新项目
     let project = Project {
@@ -1567,8 +1571,8 @@ fn main() {
             delete_account_by_uid,
             set_account_active,
             qrcode_login,
-            sms_login,
-            submit_sms_code,
+            send_loginsms_command,
+            submit_loginsms_command,
             get_ticket_info,
             get_buyer_info,
             get_order_list,

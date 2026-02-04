@@ -801,7 +801,7 @@ input:checked + .toggle-slider:before {
 }
 
 .mt-16 {
-    margin-top: 16px;
+    margin-bottom: 16px;
 }
 
 .p-12 {
@@ -870,4 +870,13 @@ input:checked + .toggle-slider:before {
 
 .quick-start-item:last-child {
     margin-bottom: 0;
+}
+/* Initially hide push settings details */
+#bark-settings,
+#pushplus-settings,
+#fangtang-settings,
+#dingtalk-settings,
+#wechat-settings,
+#gotify-settings {
+    display: none;
 }

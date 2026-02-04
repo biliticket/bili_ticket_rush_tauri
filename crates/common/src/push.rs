@@ -194,7 +194,7 @@ impl PushConfig {
             "body":message,
             "level":"timeSensitive",
             "badge":1,
-            "icon":"https://i0.hdslb.com/bfs/icon/6e62c9b4413f28388427796d1c2b87e35b736263.png",
+            "icon":"https://sr.mihoyo.com/favicon-mi.ico",
             "group":"biliticket",
             "isArchive":1,
 

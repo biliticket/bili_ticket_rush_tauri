@@ -16,10 +16,8 @@
             <nav class="nav-tabs">
                 <a class="nav-tab active" data-tab="home">首页</a>
                 <a class="nav-tab" data-tab="projects">项目列表</a>
-                <a class="nav-tab" data-tab="monitor">任务监控</a> 
-
+                <a class="nav-tab" data-tab="grab">抢票</a>
                 <a class="nav-tab" data-tab="accounts">账号管理</a>
-                <a class="nav-tab" data-tab="grab-logs">抢票日志</a>
     
                 <a class="nav-tab" data-tab="settings">设置</a>
                 <a class="nav-tab" data-tab="help">帮助</a>
@@ -41,7 +39,7 @@
                         2. 在"项目列表"中选择要抢票的项目
                     </p>
                     <p class="quick-start-item">3. 在"设置"中配置抢票参数</p>
-                    <p class="quick-start-item">4. 在"监控"页面开始抢票</p>
+                    <p class="quick-start-item">4. 在"抢票"页面开始抢票</p>
                 </div>
                 <div class="card">
                     <h3 class="card-title">系统信息</h3>
@@ -66,6 +64,103 @@
                 </div>
             </div>
 
+            <div id="tab-grab" class="tab-content">
+                <div class="card">
+                    <h2 class="card-title">抢票操作</h2>
+                    <div class="monitor-controls">
+                        <button class="btn btn-success" id="start-grab-btn">
+                            开始抢票
+                        </button>
+                        <button class="btn btn-danger" id="stop-grab-btn">
+                            停止抢票
+                        </button>
+                    </div>
+                    <div class="monitor-status-box">
+                        <span class="status-label"> 当前状态： </span>
+                        <span class="stats-value" id="monitor-status">
+                            空闲
+                        </span>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2 class="card-title">抢票日志</h2>
+                    <div class="monitor-controls">
+                        <button
+                            class="btn btn-primary"
+                            id="refresh-grab-logs-btn"
+                        >
+                            刷新抢票日志
+                        </button>
+                        <button class="btn btn-danger" id="clear-grab-logs-btn">
+                            清空抢票日志
+                        </button>
+                        <button class="btn btn-info" id="auto-scroll-btn">
+                            自动滚动: 开启
+                        </button>
+                    </div>
+                    <div class="log-filter-controls" style="margin-top: 10px">
+                        <input
+                            type="text"
+                            id="log-search"
+                            class="log-search"
+                            placeholder="搜索日志..."
+                        />
+                        <button
+                            class="log-filter-btn active"
+                            id="filter-info-btn"
+                        >
+                            信息
+                        </button>
+                        <button
+                            class="log-filter-btn active"
+                            id="filter-debug-btn"
+                        >
+                            调试
+                        </button>
+                        <button
+                            class="log-filter-btn active"
+                            id="filter-warn-btn"
+                        >
+                            警告
+                        </button>
+                        <button
+                            class="log-filter-btn active"
+                            id="filter-error-btn"
+                        >
+                            错误
+                        </button>
+                        <button
+                            class="log-filter-btn active"
+                            id="filter-success-btn"
+                        >
+                            成功
+                        </button>
+                    </div>
+                    <div class="log-stats" style="margin-top: 10px">
+                        <span
+                            >日志总数: <span id="grab-log-count">0</span></span
+                        >
+                        <span style="margin-left: 20px"
+                            >信息: <span id="info-count">0</span></span
+                        >
+                        <span style="margin-left: 20px"
+                            >调试: <span id="debug-count">0</span></span
+                        >
+                        <span style="margin-left: 20px"
+                            >警告: <span id="warn-count">0</span></span
+                        >
+                        <span style="margin-left: 20px"
+                            >错误: <span id="error-count">0</span></span
+                        >
+                    </div>
+                    <div
+                        id="grab-logs-container"
+                        class="log-container grab-log-container"
+                        style="margin-top: 16px; height: 500px"
+                    ></div>
+                </div>
+            </div>
+
             <div id="tab-accounts" class="tab-content">
                 <div class="card">
                     <h2 class="card-title">账号管理</h2>
@@ -82,6 +177,9 @@
                         <button class="btn btn-warning" id="qrcode-login-btn">
                             扫码登录
                         </button>
+                        <button class="btn btn-info" id="phone-login-btn">
+                            手机号登录
+                        </button>
                     </div>
                     <div id="accounts-loading" class="loading">
                         <div class="spinner"></div>
@@ -91,71 +189,6 @@
                         id="accounts-list"
                         class="account-list display-none"
                     ></ul>
-                </div>
-            </div>
-
-            <div id="tab-monitor" class="tab-content">
-                <div class="card">
-                    <h2 class="card-title">抢票监控</h2>
-
-                    <div class="monitor-controls">
-                        <button class="btn btn-success" id="start-grab-btn">
-                            开始抢票
-                        </button>
-                        <button class="btn btn-danger" id="stop-grab-btn">
-                            停止抢票
-                        </button>
-                        <button
-                            class="btn btn-primary"
-                            id="refresh-monitor-btn"
-                        >
-                            刷新状态
-                        </button>
-                    </div>
-
-                    <div class="monitor-grid">
-                        <div class="monitor-card">
-                            <div class="monitor-title">运行状态</div>
-                            <div class="monitor-value" id="monitor-status">
-                                空闲
-                            </div>
-                            <div class="monitor-label">当前状态</div>
-                        </div>
-                        <div class="monitor-card">
-                            <div class="monitor-title">尝试次数</div>
-                            <div class="monitor-value" id="monitor-attempts">
-                                0
-                            </div>
-                            <div class="monitor-label">总尝试次数</div>
-                        </div>
-                        <div class="monitor-card">
-                            <div class="monitor-title">成功次数</div>
-                            <div
-                                class="monitor-value color-success"
-                                id="monitor-success"
-                            >
-                                0
-                            </div>
-                            <div class="monitor-label">成功抢到票</div>
-                        </div>
-                        <div class="monitor-card">
-                            <div class="monitor-title">失败次数</div>
-                            <div
-                                class="monitor-value color-error"
-                                id="monitor-failures"
-                            >
-                                0
-                            </div>
-                            <div class="monitor-label">抢票失败</div>
-                        </div>
-                    </div>
-
-                    <div class="monitor-status-box">
-                        <span class="status-label"> 当前状态： </span>
-                        <span class="stats-value" id="monitor-status">
-                            空闲
-                        </span>
-                    </div>
                 </div>
             </div>
 
@@ -275,7 +308,6 @@
                                     <input
                                         type="checkbox"
                                         id="push-method-bark"
-                                        checked
                                     />
                                     <span style="margin-left: 4px">Bark</span>
                                 </label>
@@ -289,7 +321,6 @@
                                     <input
                                         type="checkbox"
                                         id="push-method-pushplus"
-                                        checked
                                     />
                                     <span style="margin-left: 4px"
                                         >PushPlus</span
@@ -305,7 +336,6 @@
                                     <input
                                         type="checkbox"
                                         id="push-method-fangtang"
-                                        checked
                                     />
                                     <span style="margin-left: 4px"
                                         >方糖推送</span
@@ -321,7 +351,6 @@
                                     <input
                                         type="checkbox"
                                         id="push-method-dingtalk"
-                                        checked
                                     />
                                     <span style="margin-left: 4px">钉钉</span>
                                 </label>
@@ -335,7 +364,6 @@
                                     <input
                                         type="checkbox"
                                         id="push-method-wechat"
-                                        checked
                                     />
                                     <span style="margin-left: 4px"
                                         >企业微信</span
@@ -351,7 +379,6 @@
                                     <input
                                         type="checkbox"
                                         id="push-method-gotify"
-                                        checked
                                     />
                                     <span style="margin-left: 4px">Gotify</span>
                                 </label>
@@ -556,92 +583,6 @@
                 </div>
             </div>
 
-            <div id="tab-grab-logs" class="tab-content">
-                <div class="card">
-                    <h2 class="card-title">抢票日志</h2>
-                    <div class="monitor-controls">
-                        <button
-                            class="btn btn-primary"
-                            id="refresh-grab-logs-btn"
-                        >
-                            刷新抢票日志
-                        </button>
-                        <button class="btn btn-danger" id="clear-grab-logs-btn">
-                            清空抢票日志
-                        </button>
-                        <button
-                            class="btn btn-success"
-                            id="export-grab-logs-btn"
-                        >
-                            导出抢票日志
-                        </button>
-                        <button class="btn btn-info" id="auto-scroll-btn">
-                            自动滚动: 开启
-                        </button>
-                    </div>
-                    <div class="log-filter-controls" style="margin-top: 10px">
-                        <input
-                            type="text"
-                            id="log-search"
-                            class="log-search"
-                            placeholder="搜索日志..."
-                        />
-                        <button
-                            class="log-filter-btn active"
-                            id="filter-info-btn"
-                        >
-                            信息
-                        </button>
-                        <button
-                            class="log-filter-btn active"
-                            id="filter-debug-btn"
-                        >
-                            调试
-                        </button>
-                        <button
-                            class="log-filter-btn active"
-                            id="filter-warn-btn"
-                        >
-                            警告
-                        </button>
-                        <button
-                            class="log-filter-btn active"
-                            id="filter-error-btn"
-                        >
-                            错误
-                        </button>
-                        <button
-                            class="log-filter-btn active"
-                            id="filter-success-btn"
-                        >
-                            成功
-                        </button>
-                    </div>
-                    <div class="log-stats" style="margin-top: 10px">
-                        <span
-                            >日志总数: <span id="grab-log-count">0</span></span
-                        >
-                        <span style="margin-left: 20px"
-                            >信息: <span id="info-count">0</span></span
-                        >
-                        <span style="margin-left: 20px"
-                            >调试: <span id="debug-count">0</span></span
-                        >
-                        <span style="margin-left: 20px"
-                            >警告: <span id="warn-count">0</span></span
-                        >
-                        <span style="margin-left: 20px"
-                            >错误: <span id="error-count">0</span></span
-                        >
-                    </div>
-                    <div
-                        id="grab-logs-container"
-                        class="log-container grab-log-container"
-                        style="margin-top: 16px; height: 500px"
-                    ></div>
-                </div>
-            </div>
-
             <div id="tab-help" class="tab-content">
                 <div class="card">
                     <h2 class="card-title">帮助与关于</h2>
@@ -801,15 +742,6 @@
                         placeholder="请输入项目名称"
                     />
                 </div>
-                <div class="form-group">
-                    <label class="form-label">项目URL</label>
-                    <input
-                        type="text"
-                        class="form-input"
-                        id="project-url"
-                        placeholder="请输入项目URL"
-                    />
-                </div>
                 <div class="modal-actions">
                     <button
                         class="btn btn-primary"
@@ -936,6 +868,70 @@
                             取消
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="grab-success-modal" class="modal">
+            <div class="modal-content">
+                <h3 class="modal-title" style="color: var(--success-color);">🎉 抢票成功！</h3>
+                <div class="success-info-grid">
+                    <div><strong>项目:</strong> <span id="success-project-name"></span></div>
+                    <div><strong>场次:</strong> <span id="success-screen-name"></span></div>
+                    <div><strong>票种:</strong> <span id="success-ticket-name"></span></div>
+                    <div><strong>价格:</strong> ¥<span id="success-ticket-price"></span></div>
+                </div>
+                <div class="qrcode-container" style="margin-top: 16px;">
+                    <img id="payment-qrcode-img" class="qrcode-img" src="" alt="支付二维码" />
+                </div>
+                <div style="text-align: center; margin: 16px 0; color: var(--text-secondary);">
+                    请尽快扫码支付，以免订单失效！
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="closeGrabSuccessModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="phone-login-modal" class="modal">
+            <div class="modal-content">
+                <h3 class="modal-title">手机号登录</h3>
+                <div class="form-group">
+                    <label class="form-label" for="phone-login-phone">手机号</label>
+                    <input
+                        type="tel"
+                        class="form-input"
+                        id="phone-login-phone"
+                        placeholder="请输入手机号"
+                    />
+                </div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label class="form-label" for="phone-login-sms-code">短信验证码</label>
+                        <input
+                            type="text"
+                            class="form-input"
+                            id="phone-login-sms-code"
+                            placeholder="请输入短信验证码"
+                        />
+                    </div>
+                    <button class="btn btn-secondary" id="phone-login-send-sms-btn" style="align-self: flex-end; margin-bottom: 1px;">
+                        获取验证码
+                    </button>
+                </div>
+                <div class="modal-actions">
+                    <button
+                        class="btn btn-primary"
+                        id="phone-login-submit-btn"
+                    >
+                        登录
+                    </button>
+                    <button
+                        class="btn btn-danger"
+                        onclick="closePhoneLoginModal()"
+                    >
+                        取消
+                    </button>
                 </div>
             </div>
         </div>
