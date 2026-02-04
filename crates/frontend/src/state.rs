@@ -7,10 +7,11 @@ use common::account::Account;
 use common::config::{BtrConfig as Config, CustomConfig, PushConfig};
 use common::login::LoginInput;
 use common::machine_id;
-use common::show_orderlist::OrderResponse;
 use common::taskmanager::TaskManager;
 use common::ticket::{BilibiliTicket, TicketInfo};
+use common::show_orderlist::OrderResponse;
 use common::ticket::{BuyerInfo, NoBindBuyerInfo};
+use common::captcha::LocalCaptcha;
 
 use crate::utils::{create_client, default_user_agent};
 
@@ -90,6 +91,9 @@ pub struct AppStateInner {
 
     pub skip_words: Option<Vec<String>>,
     pub skip_words_input: String,
+    
+    // Captcha
+    pub local_captcha: LocalCaptcha,
 }
 
 #[derive(Clone)]
@@ -168,6 +172,7 @@ impl AppState {
             skip_words: config.skip_words.clone(),
             skip_words_input: String::new(),
             config,
+            local_captcha: LocalCaptcha::new(),
         };
 
         if state.custom_config.open_custom_ua && !state.custom_config.custom_ua.is_empty() {

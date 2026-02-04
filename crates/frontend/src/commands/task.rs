@@ -1,13 +1,12 @@
-use crate::state::AppState;
-use common::captcha::LocalCaptcha;
+use tauri::State;
+use serde_json::{json, Value};
 use common::taskmanager::{
-    GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, GrabTicketRequest, TaskRequest,
-    TaskResult, TaskStatus,
+    GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, TaskRequest,
+    TaskStatus, TaskResult, GrabTicketRequest
 };
 use common::ticket::BilibiliTicket;
-use serde_json::{Value, json};
+use crate::state::AppState;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::State;
 
 #[tauri::command]
 pub fn get_ticket_info(
@@ -363,7 +362,7 @@ pub fn start_grab_ticket(state: State<'_, AppState>) -> Result<String, String> {
         status: TaskStatus::Pending,
         start_time: None,
         is_hot: false,
-        local_captcha: LocalCaptcha::new(),
+        local_captcha: state.local_captcha.clone(),
         skip_words: None,
     });
 

@@ -150,8 +150,14 @@ function handleGrabTicketResult(data) {
     if (data.task_id !== currentTaskId) return;
 
     if (data.success) {
-        showGrabSuccessModal(data);
-        stopGrab();
+        try {
+            showGrabSuccessModal(data);
+        } catch (e) {
+            console.error("显示成功弹窗失败:", e);
+            showError("抢票成功，但显示详情失败: " + e.message);
+        } finally {
+            stopGrab();
+        }
     } else if (data.message && data.message.includes("待付款订单")) {
         showError(data.message);
         stopGrab();
@@ -216,26 +222,46 @@ function showGrabSuccessModal(result) {
     const modal = document.getElementById('grab-success-modal');
     if (!modal) return;
 
-    const confirmResult = result.confirm_result;
-    const payResult = result.pay_result;
+    try {
+        const confirmResult = result.confirm_result;
+        const payResult = result.pay_result;
 
-    if (confirmResult) {
-        document.getElementById('success-project-name').textContent = confirmResult.project_name || 'N/A';
-        document.getElementById('success-screen-name').textContent = confirmResult.screen_name || 'N/A';
-        if (confirmResult.ticket_info) {
-            document.getElementById('success-ticket-name').textContent = confirmResult.ticket_info.name || 'N/A';
-            document.getElementById('success-ticket-price').textContent = ((confirmResult.ticket_info.price * confirmResult.count) / 100).toFixed(2) || '0.00';
+        if (confirmResult) {
+            const projectName = document.getElementById('success-project-name');
+            if (projectName) projectName.textContent = confirmResult.project_name || 'N/A';
+            
+            const screenName = document.getElementById('success-screen-name');
+            if (screenName) screenName.textContent = confirmResult.screen_name || 'N/A';
+            
+            if (confirmResult.ticket_info) {
+                const ticketName = document.getElementById('success-ticket-name');
+                if (ticketName) ticketName.textContent = confirmResult.ticket_info.name || 'N/A';
+                
+                const ticketPrice = document.getElementById('success-ticket-price');
+                if (ticketPrice) {
+                    const price = confirmResult.ticket_info.price || 0;
+                    const count = confirmResult.count || 1;
+                    ticketPrice.textContent = ((price * count) / 100).toFixed(2);
+                }
+            }
         }
-    }
 
-    if (payResult && payResult.code_url) {
-        const qrCodeApiUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(payResult.code_url)}&size=200x200`;
-        document.getElementById('payment-qrcode-img').src = qrCodeApiUrl;
-    } else {
-        document.getElementById('payment-qrcode-img').src = '';
-    }
+        const qrImg = document.getElementById('payment-qrcode-img');
+        if (qrImg) {
+            if (payResult && payResult.code_url) {
+                const qrCodeApiUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(payResult.code_url)}&size=200x200`;
+                qrImg.src = qrCodeApiUrl;
+                qrImg.style.display = 'block';
+            } else {
+                qrImg.src = '';
+                qrImg.style.display = 'none';
+            }
+        }
 
-    modal.classList.add('active');
+        modal.classList.add('active');
+    } catch (e) {
+        throw e;
+    }
 }
 
 function closeGrabSuccessModal() {
@@ -501,11 +527,54 @@ function handleIncomingLog(log) {
 
     const grabTab = document.getElementById("tab-grab");
     if (grabTab && grabTab.classList.contains("active")) {
-      updateLogsDisplay();
+        // Optimized: Append only the new log if it matches filters
+        appendLogEntry(log);
     } else {
       updateLogStats();
     }
   }
+}
+
+function appendLogEntry(log) {
+    const container = document.getElementById("grab-logs-container");
+    if (!container) return;
+
+    // Check filters
+    let visible = false;
+    if (log.includes("INFO:") && logFilters.info) visible = true;
+    else if (log.includes("DEBUG:") && logFilters.debug) visible = true;
+    else if (log.includes("WARN:") && logFilters.warn) visible = true;
+    else if (log.includes("ERROR:") && logFilters.error) visible = true;
+    else if (logFilters.success && !log.match(/INFO:|DEBUG:|WARN:|ERROR:/)) visible = true; // Fallback for success/other
+
+    // Also check search term
+    const searchTerm = document.getElementById("log-search")?.value.toLowerCase();
+    if (visible && searchTerm && !log.toLowerCase().includes(searchTerm)) {
+        visible = false;
+    }
+
+    if (visible) {
+        // If "No logs" placeholder exists, remove it
+        if (container.firstElementChild && container.firstElementChild.textContent.includes("暂无")) {
+            container.innerHTML = "";
+        }
+        
+        container.insertAdjacentHTML('beforeend', formatLogEntry(log));
+        
+        // Remove old logs from DOM if we have too many to keep DOM light (optional, but good for long runs)
+        // Sync DOM with allLogs length roughly, or just rely on virtual scroll?
+        // Since we shift allLogs at 5000, we should probably limit DOM nodes too.
+        if (container.childElementCount > 5000) {
+            container.firstElementChild.remove();
+        }
+
+        if (autoScrollEnabled) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+    
+    // Update stats
+    updateLogStats();
 }
 
 function initializeBasicUI() {

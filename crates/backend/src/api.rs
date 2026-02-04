@@ -80,10 +80,7 @@ pub async fn get_buyer_info(
     match response {
         Ok(resp) => {
             if resp.status().is_success() {
-                match tokio::task::block_in_place(|| {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(resp.text())
-                }) {
+                match resp.text().await {
                     Ok(text) => {
                         log::debug!("获取购票人信息：{}", text);
                         match serde_json::from_str::<BuyerInfoResponse>(&text) {
@@ -127,10 +124,7 @@ pub async fn get_project(
     match response {
         Ok(resp) => {
             if resp.status().is_success() {
-                match tokio::task::block_in_place(|| {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(resp.text())
-                }) {
+                match resp.text().await {
                     Ok(text) => {
                         log::debug!("获取项目详情：{}", text);
                         // 尝试常规解析
@@ -272,10 +266,7 @@ pub async fn get_ticket_token(
     match response {
         Ok(resp) => {
             if resp.status().is_success() {
-                match tokio::task::block_in_place(|| {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(resp.json::<serde_json::Value>())
-                }) {
+                match resp.json::<serde_json::Value>().await {
                     Ok(json) => {
                         log::debug!("获取票token：{}", json);
                         let errno_value = json.get("errno").and_then(|v| v.as_i64()).unwrap_or(-1);
