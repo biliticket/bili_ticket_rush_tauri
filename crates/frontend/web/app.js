@@ -527,7 +527,6 @@ function handleIncomingLog(log) {
 
     const grabTab = document.getElementById("tab-grab");
     if (grabTab && grabTab.classList.contains("active")) {
-        // Optimized: Append only the new log if it matches filters
         appendLogEntry(log);
     } else {
       updateLogStats();
@@ -539,31 +538,24 @@ function appendLogEntry(log) {
     const container = document.getElementById("grab-logs-container");
     if (!container) return;
 
-    // Check filters
     let visible = false;
     if (log.includes("INFO:") && logFilters.info) visible = true;
     else if (log.includes("DEBUG:") && logFilters.debug) visible = true;
     else if (log.includes("WARN:") && logFilters.warn) visible = true;
     else if (log.includes("ERROR:") && logFilters.error) visible = true;
-    else if (logFilters.success && !log.match(/INFO:|DEBUG:|WARN:|ERROR:/)) visible = true; // Fallback for success/other
-
-    // Also check search term
+    else if (logFilters.success && !log.match(/INFO:|DEBUG:|WARN:|ERROR:/)) visible = true;
     const searchTerm = document.getElementById("log-search")?.value.toLowerCase();
     if (visible && searchTerm && !log.toLowerCase().includes(searchTerm)) {
         visible = false;
     }
 
     if (visible) {
-        // If "No logs" placeholder exists, remove it
         if (container.firstElementChild && container.firstElementChild.textContent.includes("暂无")) {
             container.innerHTML = "";
         }
         
         container.insertAdjacentHTML('beforeend', formatLogEntry(log));
         
-        // Remove old logs from DOM if we have too many to keep DOM light (optional, but good for long runs)
-        // Sync DOM with allLogs length roughly, or just rely on virtual scroll?
-        // Since we shift allLogs at 5000, we should probably limit DOM nodes too.
         if (container.childElementCount > 5000) {
             container.firstElementChild.remove();
         }
@@ -573,7 +565,6 @@ function appendLogEntry(log) {
         }
     }
     
-    // Update stats
     updateLogStats();
 }
 
