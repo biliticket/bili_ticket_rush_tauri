@@ -1,15 +1,15 @@
-use std::sync::{Arc, Mutex};
 use reqwest::Client;
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
 
 use backend::taskmanager::TaskManagerImpl;
 use common::account::Account;
 use common::config::{BtrConfig as Config, CustomConfig, PushConfig};
 use common::login::LoginInput;
 use common::machine_id;
+use common::show_orderlist::OrderResponse;
 use common::taskmanager::TaskManager;
 use common::ticket::{BilibiliTicket, TicketInfo};
-use common::show_orderlist::OrderResponse;
 use common::ticket::{BuyerInfo, NoBindBuyerInfo};
 
 use crate::utils::{create_client, default_user_agent};

@@ -1,12 +1,13 @@
-use tauri::State;
-use serde_json::{json, Value};
-use common::{GRAB_LOG_COLLECTOR, LOG_COLLECTOR};
-use common::taskmanager::{TaskRequest, PushRequest};
-use common::config::Project;
-use common::record_log::GrabLogCollector;
-use common::PushType;
 use crate::state::AppState;
-use crate::utils::{create_client, current_timestamp, decode_policy, decode_permissions, save_permissions};
+use crate::utils::{
+    create_client, current_timestamp, decode_permissions, decode_policy, save_permissions,
+};
+use common::PushType;
+use common::config::Project;
+use common::taskmanager::{PushRequest, TaskRequest};
+use common::{GRAB_LOG_COLLECTOR, LOG_COLLECTOR};
+use serde_json::{Value, json};
+use tauri::State;
 
 #[tauri::command]
 pub fn push_test(state: State<'_, AppState>, title: String, message: String) -> Result<(), String> {
@@ -115,11 +116,7 @@ pub fn get_logs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
-    if let Some(logs) = LOG_COLLECTOR
-        .lock()
-        .ok()
-        .and_then(|mut c| c.get_logs())
-    {
+    if let Some(logs) = LOG_COLLECTOR.lock().ok().and_then(|mut c| c.get_logs()) {
         for log in logs {
             state.logs.push(log);
         }
@@ -157,7 +154,10 @@ pub fn clear_grab_logs() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn set_show_qr_windows(state: State<'_, AppState>, qr_data: Option<String>) -> Result<(), String> {
+pub fn set_show_qr_windows(
+    state: State<'_, AppState>,
+    qr_data: Option<String>,
+) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()
@@ -167,7 +167,10 @@ pub fn set_show_qr_windows(state: State<'_, AppState>, qr_data: Option<String>) 
 }
 
 #[tauri::command]
-pub fn set_skip_words(state: State<'_, AppState>, words: Option<Vec<String>>) -> Result<(), String> {
+pub fn set_skip_words(
+    state: State<'_, AppState>,
+    words: Option<Vec<String>>,
+) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()
@@ -223,20 +226,14 @@ pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn add_project(
-    state: State<'_, AppState>,
-    id: String,
-    name: String,
-) -> Result<(), String> {
+pub fn add_project(state: State<'_, AppState>, id: String, name: String) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
 
-    // Construct the URL from the project ID
     let url = format!("https://show.bilibili.com/platform/detail.html?id={}", id);
 
-    // 创建新项目
     let project = Project {
         id: id.clone(),
         name: name.clone(),
@@ -245,15 +242,12 @@ pub fn add_project(
         updated_at: current_timestamp(),
     };
 
-    // 检查是否已存在相同ID的项目
     if state.config.projects.iter().any(|p| p.id == id) {
         return Err("项目ID已存在".to_string());
     }
 
-    // 添加到配置中
     state.config.projects.push(project);
 
-    // 保存配置
     if let Err(e) = state.config.save_config() {
         log::error!("保存项目失败: {}", e);
         return Err(format!("保存项目失败: {}", e));

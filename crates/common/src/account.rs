@@ -57,7 +57,7 @@ pub fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, S
         .block_on(async { response.json::<serde_json::Value>().await })
         .map_err(|e| e.to_string())?;
     let cookie_manager = Arc::new(
-        rt.block_on(async { cookie_manager::CookieManager::new(cookie, Some(ua), 0).await })
+        rt.block_on(async { cookie_manager::CookieManager::new(cookie, Some(ua), 0).await }),
     );
     log::debug!("获取账号信息: {:?}", json);
     match json.get("code") {
@@ -149,7 +149,7 @@ impl Account {
         let rt = tokio::runtime::Runtime::new().unwrap();
         if self.cookie_manager.is_none() {
             rt.block_on(async {
-                self.cookie_manager = 
+                self.cookie_manager =
                     Some(Arc::new(CookieManager::new(&self.cookie, None, 0).await))
             });
         }

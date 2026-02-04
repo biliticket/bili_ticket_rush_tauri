@@ -1,6 +1,6 @@
-use tauri::State;
-use common::ticket::{BuyerInfo, NoBindBuyerInfo};
 use crate::state::AppState;
+use common::ticket::{BuyerInfo, NoBindBuyerInfo};
+use tauri::State;
 
 #[tauri::command]
 pub fn set_ticket_id(state: State<'_, AppState>, ticket_id: String) -> Result<(), String> {
@@ -33,7 +33,10 @@ pub fn set_show_screen_info(state: State<'_, AppState>, uid: Option<i64>) -> Res
 }
 
 #[tauri::command]
-pub fn set_confirm_ticket_info(state: State<'_, AppState>, uid: Option<String>) -> Result<(), String> {
+pub fn set_confirm_ticket_info(
+    state: State<'_, AppState>,
+    uid: Option<String>,
+) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()

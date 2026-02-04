@@ -1,8 +1,9 @@
 use crate::api::poll_qrcode_login;
-use common::login::{password_login, QrCodeLoginStatus, send_loginsms, sms_login};
+use common::login::{QrCodeLoginStatus, password_login, send_loginsms, sms_login};
 use common::taskmanager::{
-    LoginSmsRequest, LoginSmsRequestResult, PasswordLoginRequest, PasswordLoginResult, QrCodeLoginRequest, SubmitLoginSmsRequest,
-    SubmitSmsLoginResult, TaskQrCodeLoginResult, TaskResult,
+    LoginSmsRequest, LoginSmsRequestResult, PasswordLoginRequest, PasswordLoginResult,
+    QrCodeLoginRequest, SubmitLoginSmsRequest, SubmitSmsLoginResult, TaskQrCodeLoginResult,
+    TaskResult,
 };
 use tokio::sync::mpsc;
 
@@ -11,9 +12,10 @@ pub async fn handle_qrcode_login_request(
     result_tx: mpsc::Sender<TaskResult>,
 ) {
     let task_id = uuid::Uuid::new_v4().to_string();
-    
+
     loop {
-        let status = poll_qrcode_login(&qrcode_req.qrcode_key, qrcode_req.user_agent.as_deref()).await;
+        let status =
+            poll_qrcode_login(&qrcode_req.qrcode_key, qrcode_req.user_agent.as_deref()).await;
 
         let (cookie, error) = match &status {
             QrCodeLoginStatus::Success(cookie) => (Some(cookie.clone()), None),
@@ -33,9 +35,11 @@ pub async fn handle_qrcode_login_request(
             log::error!("Send qrcode login result failed: {}", e);
             break;
         }
-        
+
         match status {
-            QrCodeLoginStatus::Success(_) | QrCodeLoginStatus::Failed(_) | QrCodeLoginStatus::Expired => break,
+            QrCodeLoginStatus::Success(_)
+            | QrCodeLoginStatus::Failed(_)
+            | QrCodeLoginStatus::Expired => break,
             _ => tokio::time::sleep(tokio::time::Duration::from_secs(2)).await,
         }
     }

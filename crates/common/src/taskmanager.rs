@@ -5,9 +5,9 @@ use crate::show_orderlist::OrderResponse;
 use crate::{config, ticket::*};
 use config::PushConfig;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Instant;
-use serde::{Serialize, Deserialize};
 
 // 任务状态枚举
 #[derive(Clone, Debug, Serialize, Deserialize)]

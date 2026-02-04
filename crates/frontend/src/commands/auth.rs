@@ -1,10 +1,10 @@
-use tauri::State;
-use serde_json::json;
+use crate::state::AppState;
 use common::login::LoginInput;
 use common::taskmanager::TaskRequest;
-use crate::state::AppState;
 use image::Luma;
 use qrcode::QrCode;
+use serde_json::json;
+use tauri::State;
 
 #[tauri::command]
 pub fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
@@ -113,16 +113,25 @@ pub fn poll_qrcode_status(
 }
 
 #[tauri::command]
-pub async fn get_country_list_command(state: State<'_, AppState>) -> Result<Vec<common::login::Country>, String> {
+pub async fn get_country_list_command(
+    state: State<'_, AppState>,
+) -> Result<Vec<common::login::Country>, String> {
     let client = {
-        let state = state.inner.lock().map_err(|_| "state lock failed".to_string())?;
+        let state = state
+            .inner
+            .lock()
+            .map_err(|_| "state lock failed".to_string())?;
         state.client.clone()
     };
     common::login::get_country_list(&client).await
 }
 
 #[tauri::command]
-pub fn send_loginsms_command(state: State<'_, AppState>, phone_number: String, cid: i32) -> Result<String, String> {
+pub fn send_loginsms_command(
+    state: State<'_, AppState>,
+    phone_number: String,
+    cid: i32,
+) -> Result<String, String> {
     let state = state
         .inner
         .lock()

@@ -1,7 +1,7 @@
-use tauri::State;
+use crate::state::{AccountSwitch, AppState};
 use common::account::{Account, add_account};
 use common::config::BtrConfig as Config;
-use crate::state::{AppState, AccountSwitch};
+use tauri::State;
 
 #[tauri::command]
 pub fn get_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, String> {
@@ -25,7 +25,10 @@ pub fn reload_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, Strin
 }
 
 #[tauri::command]
-pub fn add_account_by_cookie(state: State<'_, AppState>, cookie: String) -> Result<Account, String> {
+pub fn add_account_by_cookie(
+    state: State<'_, AppState>,
+    cookie: String,
+) -> Result<Account, String> {
     let mut state = state
         .inner
         .lock()
@@ -53,7 +56,11 @@ pub fn delete_account_by_uid(state: State<'_, AppState>, uid: i64) -> Result<boo
 }
 
 #[tauri::command]
-pub fn set_account_active(state: State<'_, AppState>, uid: i64, active: bool) -> Result<(), String> {
+pub fn set_account_active(
+    state: State<'_, AppState>,
+    uid: i64,
+    active: bool,
+) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()
@@ -89,7 +96,11 @@ pub fn set_delete_account(state: State<'_, AppState>, uid: Option<String>) -> Re
 }
 
 #[tauri::command]
-pub fn set_account_switch(state: State<'_, AppState>, uid: String, switch: bool) -> Result<(), String> {
+pub fn set_account_switch(
+    state: State<'_, AppState>,
+    uid: String,
+    switch: bool,
+) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()

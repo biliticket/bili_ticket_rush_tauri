@@ -4,12 +4,12 @@ use crate::captcha::LocalCaptcha;
 use crate::captcha::captcha;
 use crate::config::CustomConfig;
 use crate::http_utils::{request_get, request_post};
-use reqwest::Client;
-use serde_json::json;
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use rsa::{pkcs8::DecodePublicKey, Pkcs1v15Encrypt, RsaPublicKey};
+use base64::engine::general_purpose::STANDARD;
 use rand::rngs::OsRng;
+use reqwest::Client;
+use rsa::{Pkcs1v15Encrypt, RsaPublicKey, pkcs8::DecodePublicKey};
+use serde_json::json;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct LoginInput {
@@ -89,7 +89,9 @@ pub async fn password_login(
         .map_err(|e| e.to_string())?;
 
     let gt = json_captcha["data"]["geetest"]["gt"].as_str().unwrap_or("");
-    let challenge = json_captcha["data"]["geetest"]["challenge"].as_str().unwrap_or("");
+    let challenge = json_captcha["data"]["geetest"]["challenge"]
+        .as_str()
+        .unwrap_or("");
     let token = json_captcha["data"]["token"].as_str().unwrap_or("");
     let referer = "https://passport.bilibili.com/x/passport-login/captcha";
 
@@ -181,7 +183,6 @@ pub async fn password_login(
     }
 }
 
-
 async fn get_pubkey_and_salt(client: &Client) -> Result<(String, String), String> {
     let response = request_get(
         client,
@@ -191,16 +192,24 @@ async fn get_pubkey_and_salt(client: &Client) -> Result<(String, String), String
     .await
     .map_err(|e| format!("Failed to get public key and salt: {}", e.to_string()))?;
 
-    let json = response
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| format!("Failed to parse public key and salt response: {}", e.to_string()))?;
+    let json = response.json::<serde_json::Value>().await.map_err(|e| {
+        format!(
+            "Failed to parse public key and salt response: {}",
+            e.to_string()
+        )
+    })?;
 
     log::debug!("Public key and salt response: {:?}", json);
 
     if json["code"].as_i64() == Some(0) {
-        let hash = json["data"]["hash"].as_str().ok_or("hash not found")?.to_string();
-        let key = json["data"]["key"].as_str().ok_or("key not found")?.to_string();
+        let hash = json["data"]["hash"]
+            .as_str()
+            .ok_or("hash not found")?
+            .to_string();
+        let key = json["data"]["key"]
+            .as_str()
+            .ok_or("key not found")?
+            .to_string();
         Ok((hash, key))
     } else {
         Err(format!(
@@ -232,7 +241,7 @@ pub async fn get_country_list(client: &Client) -> Result<Vec<Country>, String> {
 
     if json["code"].as_i64() == Some(0) {
         let mut countries = Vec::new();
-        
+
         let process_list = |list: &Vec<serde_json::Value>, countries: &mut Vec<Country>| {
             for item in list {
                 let name = item["cname"].as_str().unwrap_or("").to_string();
@@ -250,7 +259,10 @@ pub async fn get_country_list(client: &Client) -> Result<Vec<Country>, String> {
         }
         Ok(countries)
     } else {
-        Err(json["message"].as_str().unwrap_or("获取地区列表失败").to_string())
+        Err(json["message"]
+            .as_str()
+            .unwrap_or("获取地区列表失败")
+            .to_string())
     }
 }
 

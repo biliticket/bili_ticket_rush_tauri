@@ -69,7 +69,8 @@ impl BtrConfig {
         }
 
         let raw_context = fs::read_to_string("./config")?;
-        serde_json::from_str(&raw_context).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        serde_json::from_str(&raw_context)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
     pub fn save_config(&self) -> io::Result<()> {

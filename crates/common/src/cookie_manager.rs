@@ -132,11 +132,9 @@ impl CookieManager {
 
                 let (buvid3, buvid4, b_nut) = match existing_buvids {
                     (Some(b3), Some(b4), Some(bn)) => (b3, b4, bn),
-                    _ => {
-                        gen_buvid3and4(client.clone())
-                            .await
-                            .unwrap_or_else(|_err| ("".to_string(), "".to_string(), "".to_string()))
-                    }
+                    _ => gen_buvid3and4(client.clone())
+                        .await
+                        .unwrap_or_else(|_err| ("".to_string(), "".to_string(), "".to_string())),
                 };
                 log::debug!("buvid3: {}, buvid4: {}, b_nut: {}", buvid3, buvid4, b_nut);
 
@@ -184,11 +182,9 @@ impl CookieManager {
                                 .unwrap_or_else(|_| ("".to_string(), "".to_string()))
                         }
                     }
-                    _ => {
-                        gen_ckbili_ticket(client.clone())
-                            .await
-                            .unwrap_or_else(|_| ("".to_string(), "".to_string()))
-                    }
+                    _ => gen_ckbili_ticket(client.clone())
+                        .await
+                        .unwrap_or_else(|_| ("".to_string(), "".to_string())),
                 };
 
                 let msourse = {

@@ -4,10 +4,10 @@ mod commands;
 mod state;
 mod utils;
 
-use tauri::Manager;
-use tauri::Emitter;
-use crate::state::AppState;
 use crate::commands::*;
+use crate::state::AppState;
+use tauri::Emitter;
+use tauri::Manager;
 
 fn main() {
     if let Err(e) = common::record_log::init() {
@@ -33,12 +33,13 @@ fn main() {
             std::thread::spawn(move || {
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(500));
-                    
+
                     let state = handle_task.state::<AppState>();
-                    
+
                     if let Ok(state_inner) = state.inner.lock() {
                         if let Ok(mut task_manager) = state_inner.task_manager.lock() {
-                            let results: Vec<common::taskmanager::TaskResult> = task_manager.get_results();
+                            let results: Vec<common::taskmanager::TaskResult> =
+                                task_manager.get_results();
                             for result in results {
                                 if let Err(e) = handle_task.emit("task-update", &result) {
                                     log::error!("任务更新事件无法发出: {}", e);
@@ -60,7 +61,6 @@ fn main() {
             account::set_selected_account,
             account::set_delete_account,
             account::set_account_switch,
-            
             auth::qrcode_login,
             auth::poll_qrcode_status,
             auth::send_loginsms_command,
@@ -71,14 +71,12 @@ fn main() {
             auth::set_login_input,
             auth::set_cookie_login,
             auth::get_country_list_command,
-
             task::get_ticket_info,
             task::get_buyer_info,
             task::get_order_list,
             task::poll_task_results,
             task::cancel_task,
             task::start_grab_ticket,
-
             ticket::set_ticket_id,
             ticket::set_grab_mode,
             ticket::set_show_screen_info,
@@ -91,7 +89,6 @@ fn main() {
             ticket::set_buyer_type,
             ticket::set_no_bind_buyer_info,
             ticket::clear_no_bind_buyer_info,
-
             general::push_test,
             general::get_policy,
             general::get_logs,

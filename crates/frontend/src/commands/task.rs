@@ -1,13 +1,13 @@
-use tauri::State;
-use serde_json::{json, Value};
+use crate::state::AppState;
+use common::captcha::LocalCaptcha;
 use common::taskmanager::{
-    GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, TaskRequest,
-    TaskStatus, TaskResult, GrabTicketRequest
+    GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, GrabTicketRequest, TaskRequest,
+    TaskResult, TaskStatus,
 };
 use common::ticket::BilibiliTicket;
-use common::captcha::LocalCaptcha;
-use crate::state::AppState;
+use serde_json::{Value, json};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::State;
 
 #[tauri::command]
 pub fn get_ticket_info(
@@ -170,13 +170,18 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
             TaskResult::GetTicketInfoResult(r) => {
                 let mut success = r.success;
                 let mut message = r.message.clone();
-                
+
                 if success {
                     if let Some(ticket_info) = &r.ticket_info {
                         if ticket_info.data.vip_exclusive {
                             // 检查账号是否有大会员
-                            let is_vip = state.accounts.iter().find(|a| a.uid == r.uid).map(|a| a.vip_status == 1).unwrap_or(false);
-                            
+                            let is_vip = state
+                                .accounts
+                                .iter()
+                                .find(|a| a.uid == r.uid)
+                                .map(|a| a.vip_status == 1)
+                                .unwrap_or(false);
+
                             if !is_vip {
                                 success = false;
                                 message = "该项目为大会员专属，您的账号未开通大会员".to_string();
@@ -193,7 +198,7 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                     "message": message,
                     "ticket_info": r.ticket_info
                 })
-            },
+            }
             TaskResult::GetBuyerInfoResult(r) => json!({
                 "type": "GetBuyerInfoResult",
                 "task_id": r.task_id,
