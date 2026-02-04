@@ -83,6 +83,16 @@ function closeAddAccountModal() {
   }
 }
 
+function closeAddProjectModal() {
+  const modal = document.getElementById("add-project-modal");
+  if (modal) {
+    modal.classList.remove("active");
+  }
+
+  document.getElementById("project-id").value = "";
+  document.getElementById("project-name").value = "";
+}
+
 function showGrabSuccessModal(result) {
     const modal = document.getElementById('grab-success-modal');
     if (!modal) return;
@@ -521,28 +531,6 @@ function switchLoginMethod(method) {
       clearInterval(passwordLoginPollingInterval);
       passwordLoginPollingInterval = null;
     }
-  }
-}
-
-function closeAddAccountModal() {
-  const modal = document.getElementById("add-account-modal");
-  if (modal) {
-    modal.classList.remove("active");
-  }
-
-  // Stop any polling
-  if (qrcodePollingInterval) {
-    clearInterval(qrcodePollingInterval);
-    qrcodePollingInterval = null;
-  }
-  if (passwordLoginPollingInterval) {
-    clearInterval(passwordLoginPollingInterval);
-    passwordLoginPollingInterval = null;
-  }
-
-  const cookieInput = document.getElementById("account-cookie");
-  if (cookieInput) {
-    cookieInput.value = "";
   }
 }
 
@@ -1020,12 +1008,34 @@ function updateTicketList(screenId) {
 
 async function confirmScreenTicketSelection() {
   try {
-    const screenId = document.getElementById("screen-select").value;
-    const ticketId = document.getElementById("ticket-select").value;
+    const screenId = parseInt(document.getElementById("screen-select").value);
+    const ticketId = parseInt(document.getElementById("ticket-select").value);
 
     if (!screenId || !ticketId) {
       showWarning("请选择场次和票种");
       return;
+    }
+
+    // 购票等级需求判定
+    const ticketInfo = window.currentTicketInfo;
+    if (ticketInfo) {
+      const selectedScreen = ticketInfo.screen_list.find(s => s.id === screenId);
+      if (selectedScreen) {
+        const selectedTicket = selectedScreen.ticket_list.find(t => t.id === ticketId);
+        if (selectedTicket && selectedTicket.less_lv > 0) {
+          const accounts = await invoke("get_accounts");
+          const activeAccount = accounts.find(a => a.is_active);
+          
+          if (activeAccount) {
+            const userLevel = parseInt(activeAccount.level);
+            if (userLevel < selectedTicket.less_lv) {
+              showError(`该票种需要等级 LV${selectedTicket.less_lv}，当前账号等级为 LV${userLevel}`);
+              closeScreenTicketModal();
+              return;
+            }
+          }
+        }
+      }
     }
 
     // 根据当前显示的购票人部分确定购票人类型
@@ -1072,10 +1082,10 @@ async function confirmScreenTicketSelection() {
 
     await invoke("set_selected_screen", {
       index: null,
-      id: parseInt(screenId),
+      id: screenId,
     });
     await invoke("set_selected_ticket", {
-      id: parseInt(ticketId),
+      id: ticketId,
     });
 
     await invoke("set_buyer_type", { buyerType: parseInt(buyerType) });

@@ -911,3 +911,12 @@ input:checked + .toggle-slider:before {
     margin-top: 10px;
     font-size: 13px;
 }
+
+#bark-settings,
+#pushplus-settings,
+#fangtang-settings,
+#dingtalk-settings,
+#wechat-settings,
+#gotify-settings {
+    display: none;
+}

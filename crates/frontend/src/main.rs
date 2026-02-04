@@ -580,14 +580,33 @@ fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                 "message": r.message,
                 "order_info": r.order_info
             }),
-            common::taskmanager::TaskResult::GetTicketInfoResult(r) => json!({
-                "type": "GetTicketInfoResult",
-                "task_id": r.task_id,
-                "success": r.success,
-                "uid": r.uid,
-                "message": r.message,
-                "ticket_info": r.ticket_info
-            }),
+            common::taskmanager::TaskResult::GetTicketInfoResult(r) => {
+                let mut success = r.success;
+                let mut message = r.message.clone();
+                
+                if success {
+                    if let Some(ticket_info) = &r.ticket_info {
+                        if ticket_info.data.vip_exclusive {
+                            // 检查账号是否有大会员
+                            let is_vip = state.accounts.iter().find(|a| a.uid == r.uid).map(|a| a.vip_status == 1).unwrap_or(false);
+                            
+                            if !is_vip {
+                                success = false;
+                                message = "该项目为大会员专属，您的账号未开通大会员".to_string();
+                            }
+                        }
+                    }
+                }
+
+                json!({
+                    "type": "GetTicketInfoResult",
+                    "task_id": r.task_id,
+                    "success": success,
+                    "uid": r.uid,
+                    "message": message,
+                    "ticket_info": r.ticket_info
+                })
+            },
             common::taskmanager::TaskResult::GetBuyerInfoResult(r) => json!({
                 "type": "GetBuyerInfoResult",
                 "task_id": r.task_id,

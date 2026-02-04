@@ -72,12 +72,8 @@ jobs:
       - name: Compress artifacts with UPX (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          Get-ChildItem -Path target/output -File -Recurse | ForEach-Object {
-              try {
-                  upx --best --lzma "$($_.FullName)"
-              } catch {
-                  Write-Warning "Failed to compress $($_.FullName): $($_.Exception.Message)"
-              }
+          Get-ChildItem -Path target/output -File -Recurse | Where-Object { $_.Extension -in ".exe", ".dll" } | ForEach-Object {
+              upx --best --lzma "$($_.FullName)"
           }
         shell: pwsh
       - name: Upload Artifacts

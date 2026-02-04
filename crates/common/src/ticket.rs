@@ -212,6 +212,8 @@ pub struct TicketInfo {
     pub id_bind: usize,                         //是否绑定
     #[serde(rename = "hotProject")]
     pub hot_project: bool, //是否热门项目
+    #[serde(default, rename = "vip_exclusive")]
+    pub vip_exclusive: bool, //是否大会员专属
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -268,6 +270,8 @@ pub struct ScreenTicketInfo {
     pub clickable: bool,         //是否可点（可售）
     pub sale_flag_number: usize, //售票标志位
     pub screen_name: String,     //场次名称
+    #[serde(default, rename = "less_lv")]
+    pub less_lv: i32, //最低等级需求
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

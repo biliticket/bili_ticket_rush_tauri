@@ -14,6 +14,8 @@ pub struct Account {
     pub is_login: bool,             //是否登录
     pub account_status: String,     //账号状态
     pub vip_label: String,          //大会员，对应/nav请求中data['vip_label']['text']
+    pub vip_type: i32,              //大会员类型
+    pub vip_status: i32,            //大会员状态 1:激活
     pub is_active: bool,            //该账号是否启动抢票
     pub avatar_url: Option<String>, //头像地址
     #[serde(skip)]
@@ -30,6 +32,8 @@ impl std::fmt::Debug for Account {
             .field("is_login", &self.is_login)
             .field("account_status", &self.account_status)
             .field("vip_label", &self.vip_label)
+            .field("vip_type", &self.vip_type)
+            .field("vip_status", &self.vip_status)
             .field("is_active", &self.is_active)
             .field("avatar_url", &self.avatar_url)
             .field("client", &self.cookie_manager)
@@ -53,7 +57,7 @@ pub fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, S
         .block_on(async { response.json::<serde_json::Value>().await })
         .map_err(|e| e.to_string())?;
     let cookie_manager = Arc::new(
-        rt.block_on(async { cookie_manager::CookieManager::new(cookie, Some(ua), 0).await }),
+        rt.block_on(async { cookie_manager::CookieManager::new(cookie, Some(ua), 0).await })
     );
     log::debug!("获取账号信息: {:?}", json);
     match json.get("code") {
@@ -76,6 +80,8 @@ pub fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, S
             is_login: true,
             account_status: "空闲".to_string(),
             vip_label: data["vip_label"]["text"].as_str().unwrap_or("").to_string(),
+            vip_type: data["vip_type"].as_i64().unwrap_or(0) as i32,
+            vip_status: data["vip_status"].as_i64().unwrap_or(0) as i32,
             is_active: true,
             avatar_url: Some(data["face"].as_str().unwrap_or("").to_string()),
             cookie_manager: Some(cookie_manager),
@@ -143,7 +149,7 @@ impl Account {
         let rt = tokio::runtime::Runtime::new().unwrap();
         if self.cookie_manager.is_none() {
             rt.block_on(async {
-                self.cookie_manager =
+                self.cookie_manager = 
                     Some(Arc::new(CookieManager::new(&self.cookie, None, 0).await))
             });
         }
@@ -171,7 +177,7 @@ fn create_client_for_account(_cookie: &str) -> reqwest::Client {
     headers.insert(
         header::USER_AGENT,
         header::HeaderValue::from_str(&user_agent).unwrap_or_else(|_| {
-            // 提供一个替代值，而不是使用 unwrap_or_default()
+            // 提供一个替代 value，而不是使用 unwrap_or_default()
             header::HeaderValue::from_static("Mozilla/5.0")
         }),
     );
