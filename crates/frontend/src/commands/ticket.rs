@@ -74,14 +74,12 @@ pub fn set_show_orderlist_window(
 #[tauri::command]
 pub fn set_selected_screen(
     state: State<'_, AppState>,
-    index: Option<usize>,
     id: Option<i64>,
 ) -> Result<(), String> {
     let mut state = state
         .inner
         .lock()
         .map_err(|_| "state lock failed".to_string())?;
-    state.selected_screen_index = index;
     state.selected_screen_id = id;
     Ok(())
 }

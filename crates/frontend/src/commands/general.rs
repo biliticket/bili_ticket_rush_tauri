@@ -207,7 +207,6 @@ pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
         "grab_mode": state.grab_mode,
         "selected_account_uid": state.selected_account_uid,
         "show_screen_info": state.show_screen_info,
-        "selected_screen_index": state.selected_screen_index,
         "selected_screen_id": state.selected_screen_id,
         "selected_ticket_id": state.selected_ticket_id,
         "confirm_ticket_info": state.confirm_ticket_info,

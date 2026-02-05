@@ -442,14 +442,14 @@ async fn direct_grab_ticket_mode(
 }
 async fn leak_grab_ticket_mode(
     cookie_manager: Arc<CookieManager>,
-    mut cpdd: Arc<Mutex<CTokenGenerator>>,
+    cpdd: Arc<Mutex<CTokenGenerator>>,
     project_id: String,
     _screen_id: String,
     _ticket_id: String,
     count: i16,
     mut is_hot: bool,
     skip_words: Option<Vec<String>>,
-    mut rng: StdRng,
+    rng: StdRng,
     task_id: String,
     uid: i64,
     result_tx: &mpsc::Sender<TaskResult>,

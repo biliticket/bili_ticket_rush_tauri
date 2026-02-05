@@ -921,6 +921,24 @@ function updateTicketList(screenId) {
   }).join("");
 }
 
+async function saveNoBindBuyerInfo() {
+  const name = document.getElementById("no-bind-name").value.trim();
+  const tel = document.getElementById("no-bind-tel").value.trim();
+
+  if (!name || !tel) {
+    showWarning("请填写姓名和手机号");
+    return;
+  }
+
+  try {
+    if (!invoke) throw new Error("Tauri invoke function not available");
+    await invoke("set_no_bind_buyer_info", { name, tel });
+    showSuccess("非实名购票人信息保存成功");
+  } catch (error) {
+    showError("保存失败: " + error);
+  }
+}
+
 async function confirmScreenTicketSelection() {
   try {
     const screenId = parseInt(document.getElementById("screen-select").value);
@@ -963,7 +981,7 @@ async function confirmScreenTicketSelection() {
       await invoke("set_selected_buyer_list", { buyerList: null });
     }
 
-    await invoke("set_selected_screen", { index: null, id: screenId });
+    await invoke("set_selected_screen", { id: screenId });
     await invoke("set_selected_ticket", { id: ticketId });
     await invoke("set_buyer_type", { buyerType: parseInt(buyerType) });
 
