@@ -42,8 +42,10 @@ pub struct CheckFakeResultParam {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CheckFakeResultData {
+    #[serde(default)]
     pub sign: String,
-    pub code_url: String,
+    #[serde(default)]
+    pub code_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

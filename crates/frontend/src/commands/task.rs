@@ -224,13 +224,6 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                 "pay_result": r.pay_result,
                 "confirm_result": r.confirm_result
             }),
-            TaskResult::PasswordLoginResult(r) => json!({
-                "type": "PasswordLoginResult",
-                "task_id": r.task_id,
-                "success": r.success,
-                "message": r.message,
-                "cookie": r.cookie
-            }),
         })
         .collect();
 

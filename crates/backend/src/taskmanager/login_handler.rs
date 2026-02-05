@@ -1,7 +1,7 @@
 use crate::api::poll_qrcode_login;
-use common::login::{QrCodeLoginStatus, password_login, send_loginsms, sms_login};
+use common::login::{QrCodeLoginStatus, send_loginsms, sms_login};
 use common::taskmanager::{
-    LoginSmsRequest, LoginSmsRequestResult, PasswordLoginRequest, PasswordLoginResult,
+    LoginSmsRequest, LoginSmsRequestResult,
     QrCodeLoginRequest, SubmitLoginSmsRequest, SubmitSmsLoginResult, TaskQrCodeLoginResult,
     TaskResult,
 };
@@ -128,40 +128,4 @@ pub async fn handle_submit_login_sms_request(
     }
 }
 
-pub async fn handle_password_login_request(
-    password_login_req: PasswordLoginRequest,
-    result_tx: mpsc::Sender<TaskResult>,
-) {
-    let task_id = password_login_req.task_id.clone();
-    let username = password_login_req.username.clone();
-    let password = password_login_req.password.clone();
-    let client = password_login_req.client.clone();
-    let custom_config = password_login_req.custom_config.clone();
-    let local_captcha = password_login_req.local_captcha.clone();
 
-    log::info!("Password login in progress for user: {}", username);
-
-    let response =
-        password_login(&username, &password, &client, custom_config, local_captcha).await;
-
-    let success = response.is_ok();
-    let message = match &response {
-        Ok(_cookie) => "登录成功".to_string(),
-        Err(err) => {
-            log::error!("Password login failed for user {}: {}", username, err);
-            err.to_string()
-        }
-    };
-    let cookie = response.ok();
-
-    let task_result = TaskResult::PasswordLoginResult(PasswordLoginResult {
-        task_id,
-        success,
-        message,
-        cookie,
-    });
-
-    if let Err(e) = result_tx.send(task_result).await {
-        log::error!("Failed to send password login result: {}", e);
-    }
-}

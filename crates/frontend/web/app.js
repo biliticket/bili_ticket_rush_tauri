@@ -25,9 +25,6 @@ function handleTaskUpdate(result) {
     case "QrCodeLoginResult":
       handleQrCodeResult(data);
       break;
-    case "PasswordLoginResult":
-      handlePasswordLoginResult(data);
-      break;
     case "SubmitSmsLoginResult":
       handleSubmitSmsLoginResult(data);
       break;
@@ -79,20 +76,6 @@ function handleQrCodeResult(data) {
         if (overlay) overlay.style.display = "none";
     } else if (statusType === "Failed") {
         if (statusText) statusText.textContent = "登录失败: " + statusValue;
-    }
-}
-
-function handlePasswordLoginResult(data) {
-    if (data.success && data.cookie) {
-        closeAddAccountModal();
-        invoke("add_account_by_cookie", { cookie: data.cookie }).then(() => {
-            showSuccess("密码登录成功！账号已添加");
-            reloadAccounts();
-        }).catch(err => {
-            showError("密码登录成功但添加账号失败: " + err);
-        });
-    } else {
-        showError("密码登录失败: " + data.message);
     }
 }
 
@@ -388,26 +371,6 @@ async function submitPhoneLogin() {
   }
 }
 
-async function submitPasswordLogin() {
-  const username = document.getElementById("password-login-username").value.trim();
-  const password = document.getElementById("password-login-password").value.trim();
-
-  if (!username || !password) {
-    showWarning("请输入用户名和密码");
-    return;
-  }
-
-  try {
-    if (!invoke) {
-      throw new Error("Tauri invoke function not available");
-    }
-    const taskId = await invoke("password_login_command", { username, password });
-    showSuccess("密码登录任务已提交...");
-  } catch (error) {
-    showError("密码登录失败: " + error);
-  }
-}
-
 function initializeEventListeners() {
   document.querySelectorAll(".nav-tab").forEach((tab) => {
     const tabName = tab.getAttribute("data-tab");
@@ -434,7 +397,6 @@ function initializeEventListeners() {
     "reload-accounts-btn": reloadAccounts,
     "phone-login-send-sms-btn": requestSmsCode,
     "phone-login-submit-btn": submitPhoneLogin,
-    "password-login-submit-btn": submitPasswordLogin,
     "start-grab-btn": startGrab,
     "stop-grab-btn": stopGrab,
   };

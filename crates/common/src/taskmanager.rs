@@ -52,17 +52,6 @@ pub enum TaskRequest {
     GetTicketInfoRequest(GetTicketInfoRequest),
     GetBuyerInfoRequest(GetBuyerInfoRequest),
     GrabTicketRequest(GrabTicketRequest),
-    PasswordLoginRequest(PasswordLoginRequest),
-}
-
-#[derive(Debug, Clone)]
-pub struct PasswordLoginRequest {
-    pub task_id: String,
-    pub username: String,
-    pub password: String,
-    pub client: Client,
-    pub custom_config: CustomConfig,
-    pub local_captcha: LocalCaptcha,
 }
 
 // 任务结果枚举
@@ -76,15 +65,6 @@ pub enum TaskResult {
     GetTicketInfoResult(GetTicketInfoResult),
     GetBuyerInfoResult(GetBuyerInfoResult),
     GrabTicketResult(GrabTicketResult),
-    PasswordLoginResult(PasswordLoginResult),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PasswordLoginResult {
-    pub task_id: String,
-    pub success: bool,
-    pub message: String,
-    pub cookie: Option<String>,
 }
 
 //抢票请求

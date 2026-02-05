@@ -690,7 +690,6 @@
                 <div class="login-tabs">
                     <div class="login-tab active" data-method="qrcode">扫码登录</div>
                     <div class="login-tab" data-method="sms">手机号登录</div>
-                    <div class="login-tab" data-method="password">账号密码</div>
                     <div class="login-tab" data-method="cookie">Cookie</div>
                 </div>
 
@@ -733,20 +732,8 @@
                     </div>
                 </div>
 
-                <div id="method-password" class="login-method-content">
-                    <div class="form-group">
-                        <label class="form-label" for="password-login-username">账号</label>
-                        <input type="text" class="form-input" id="password-login-username" placeholder="手机号/邮箱/用户名" />
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="password-login-password">密码</label>
-                        <input type="password" class="form-input" id="password-login-password" placeholder="请输入密码" />
-                    </div>
-                    <div id="password-login-error" class="error-message" style="display: none; color: var(--error-color); margin-bottom: 10px;"></div>
-                    <div class="modal-actions">
-                        <button class="btn btn-primary" id="password-login-submit-btn" style="width: 100%; margin-right: 0;">登录</button>
-                    </div>
-                </div>
+
+
 
                 <div id="method-cookie" class="login-method-content">
                     <div class="form-group">

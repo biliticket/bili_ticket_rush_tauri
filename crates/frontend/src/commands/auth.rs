@@ -198,45 +198,6 @@ pub fn submit_loginsms_command(
 }
 
 #[tauri::command]
-pub fn password_login_command(
-    state: State<'_, AppState>,
-    username: String,
-    password: String,
-) -> Result<String, String> {
-    let auth = state
-        .auth
-        .lock()
-        .map_err(|_| "auth lock failed".to_string())?;
-    let config = state
-        .config
-        .lock()
-        .map_err(|_| "config lock failed".to_string())?;
-    let mut runtime = state
-        .runtime
-        .lock()
-        .map_err(|_| "runtime lock failed".to_string())?;
-
-    let task_id = uuid::Uuid::new_v4().to_string();
-    let request = common::taskmanager::TaskRequest::PasswordLoginRequest(
-        common::taskmanager::PasswordLoginRequest {
-            task_id: task_id.clone(),
-            username,
-            password,
-            client: auth.client.clone(),
-            custom_config: config.custom_config.clone(),
-            local_captcha: common::captcha::LocalCaptcha::new(),
-        },
-    );
-
-    let result = runtime
-        .task_manager
-        .submit_task(request)
-        .map_err(|e| format!("submit password login failed: {}", e));
-
-    result
-}
-
-#[tauri::command]
 pub fn set_login_method(state: State<'_, AppState>, method: String) -> Result<(), String> {
     let mut auth = state
         .auth

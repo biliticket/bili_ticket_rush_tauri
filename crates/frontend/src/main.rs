@@ -64,7 +64,6 @@ fn main() {
             auth::poll_qrcode_status,
             auth::send_loginsms_command,
             auth::submit_loginsms_command,
-            auth::password_login_command,
             auth::set_login_method,
             auth::set_show_login_window,
             auth::set_login_input,
