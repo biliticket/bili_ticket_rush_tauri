@@ -20,49 +20,27 @@ pub const APP_VERSION: &str = "7.0.0";
 
 #[derive(Clone)]
 pub struct AppState {
-    pub inner: Arc<Mutex<AppStateInner>>,
+    pub config: Arc<Mutex<ConfigState>>,
+    pub ticket: Arc<Mutex<TicketState>>,
+    pub auth: Arc<Mutex<AuthState>>,
+    pub runtime: Arc<Mutex<RuntimeState>>,
+    pub ui: Arc<Mutex<UiState>>,
 }
 
-#[derive(Clone)]
-pub struct AppStateInner {
-    pub app: String,
-    pub version: String,
-    pub policy: Option<Value>,
-    pub public_key: String,
-    pub machine_id: String,
-
-    pub selected_tab: usize,
-    pub is_loading: bool,
-    pub running_status: String,
-
-    pub logs: Vec<String>,
-    pub show_log_window: bool,
-
-    pub show_login_window: bool,
-    pub login_method: String,
-    pub client: Client,
-    pub default_ua: String,
-    pub login_qrcode_url: Option<String>,
-    pub qrcode_polling_task_id: Option<String>,
-    pub login_input: LoginInput,
-    pub pending_sms_task_id: Option<String>,
-    pub sms_captcha_key: String,
-    pub cookie_login: Option<String>,
-
-    pub accounts: Vec<Account>,
-    pub delete_account: Option<String>,
-    pub account_switch: Option<AccountSwitch>,
-
-    pub task_manager: Arc<Mutex<Box<dyn TaskManager>>>,
-
+pub struct ConfigState {
     pub config: Config,
     pub push_config: PushConfig,
     pub custom_config: CustomConfig,
+    pub accounts: Vec<Account>,
+    pub skip_words: Option<Vec<String>>,
+    pub skip_words_input: String,
+}
 
+pub struct TicketState {
     pub ticket_id: String,
-    pub status_delay: usize,
     pub grab_mode: u8,
-    pub selected_account_uid: Option<i64>,
+    pub status_delay: usize,
+    
     pub bilibiliticket_list: Vec<BilibiliTicket>,
     pub ticket_info: Option<TicketInfo>,
     pub show_screen_info: Option<i64>,
@@ -73,26 +51,56 @@ pub struct AppStateInner {
     pub selected_buyer_list: Option<Vec<BuyerInfo>>,
     pub selected_no_bind_buyer_info: Option<NoBindBuyerInfo>,
     pub buyer_type: u8,
+}
 
+pub struct AuthState {
+    pub login_method: String,
+    pub login_input: LoginInput,
+    pub login_qrcode_url: Option<String>,
+    pub qrcode_polling_task_id: Option<String>,
+    pub pending_sms_task_id: Option<String>,
+    pub sms_captcha_key: String,
+    pub cookie_login: Option<String>,
+    pub client: Client,
+    pub default_ua: String,
+}
+
+pub struct RuntimeState {
+    pub app: String,
+    pub version: String,
+    pub policy: Option<Value>,
+    pub public_key: String,
+    pub machine_id: String,
+    
+    pub running_status: String,
+    pub is_loading: bool,
+    pub logs: Vec<String>,
+    
+    pub task_manager: Box<dyn TaskManager + Send>,
+    pub local_captcha: LocalCaptcha,
+}
+
+pub struct UiState {
+    pub selected_tab: usize,
+    pub show_log_window: bool,
+    pub show_login_window: bool,
     pub show_add_buyer_window: Option<String>,
     pub show_orderlist_window: Option<String>,
+    pub show_qr_windows: Option<String>,
+    
+    pub delete_account: Option<String>,
+    pub account_switch: Option<AccountSwitch>,
+    pub selected_account_uid: Option<i64>,
+    
     pub total_order_data: Option<OrderData>,
     pub orderlist_need_reload: bool,
     pub orderlist_last_request_time: Option<std::time::Instant>,
     pub orderlist_requesting: bool,
-
-    pub show_qr_windows: Option<String>,
-
+    
     pub announce1: Option<String>,
     pub announce2: Option<String>,
     pub announce3: Option<String>,
     pub announce4: Option<String>,
-
-    pub skip_words: Option<Vec<String>>,
-    pub skip_words_input: String,
-    
-    // Captcha
-    pub local_captcha: LocalCaptcha,
 }
 
 #[derive(Clone)]
@@ -114,18 +122,7 @@ impl AppState {
             Config::default()
         });
 
-        let mut state = AppStateInner {
-            app: APP_NAME.to_string(),
-            version: APP_VERSION.to_string(),
-            policy: None,
-            public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKcaQEApTAS0RElXIs4Kr0bO4n8\nJB+eBFF/TwXUlvtOM9FNgHjK8m13EdwXaLy9zjGTSQr8tshSRr0dQ6iaCG19Zo2Y\nXfvJrwQLqdezMN+ayMKFy58/S9EGG3Np2eGgKHUPnCOAlRicqWvBdQ/cxzTDNCxa\nORMZdJRoBvya7JijLLIC3CoqmMc6Fxe5i8eIP0zwlyZ0L0C1PQ82BcWn58y7tlPY\nTCz12cWnuKwiQ9LSOfJ4odJJQK0k7rXxwBBsYxULRno0CJ3rKfApssW4cfITYVax\nFtdbu0IUsgEeXs3EzNw8yIYnsaoZlFwLS8SMVsiAFOy2y14lR9043PYAQHm1Cjaf\noQIDAQAB\n-----END PUBLIC KEY-----".to_string(),
-            machine_id: machine_id::get_machine_id_ob(),
-            selected_tab: 0,
-            is_loading: false,
-            running_status: "空闲".to_string(),
-            logs: Vec::new(),
-            show_log_window: false,
-            show_login_window: false,
+        let mut auth_state = AuthState {
             login_method: "扫码登录".to_string(),
             client: Client::new(),
             default_ua: default_user_agent(),
@@ -135,16 +132,31 @@ impl AppState {
             pending_sms_task_id: None,
             sms_captcha_key: String::new(),
             cookie_login: None,
+        };
+        
+        // Custom UA logic
+        if config.custom_config.open_custom_ua && !config.custom_config.custom_ua.is_empty() {
+            auth_state.default_ua = config.custom_config.custom_ua.clone();
+        }
+        auth_state.client = create_client(auth_state.default_ua.clone());
+
+        let mut config_state = ConfigState {
             accounts: config.accounts.clone(),
-            delete_account: None,
-            account_switch: None,
-            task_manager: Arc::new(Mutex::new(Box::new(TaskManagerImpl::new()))),
             push_config: config.push_config.clone(),
             custom_config: config.custom_config.clone(),
+            skip_words: config.skip_words.clone(),
+            skip_words_input: String::new(),
+            config,
+        };
+
+        for account in &mut config_state.accounts {
+            account.ensure_client();
+        }
+
+        let ticket_state = TicketState {
             ticket_id: String::new(),
-            status_delay: config.delay_time as usize,
-            grab_mode: config.grab_mode,
-            selected_account_uid: None,
+            status_delay: config_state.config.delay_time as usize,
+            grab_mode: config_state.config.grab_mode,
             bilibiliticket_list: Vec::new(),
             ticket_info: None,
             show_screen_info: None,
@@ -155,36 +167,47 @@ impl AppState {
             selected_buyer_list: None,
             selected_no_bind_buyer_info: None,
             buyer_type: 1,
+        };
 
+        let runtime_state = RuntimeState {
+            app: APP_NAME.to_string(),
+            version: APP_VERSION.to_string(),
+            policy: None,
+            public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKcaQEApTAS0RElXIs4Kr0bO4n8\nJB+eBFF/TwXUlvtOM9FNgHjK8m13EdwXaLy9zjGTSQr8tshSRr0dQ6iaCG19Zo2Y\nXfvJrwQLqdezMN+ayMKFy58/S9EGG3Np2eGgKHUPnCOAlRicqWvBdQ/cxzTDNCxa\nORMZdJRoBvya7JijLLIC3CoqmMc6Fxe5i8eIP0zwlyZ0L0C1PQ82BcWn58y7tlPY\nTCz12cWnuKwiQ9LSOfJ4odJJQK0k7rXxwBBsYxULRno0CJ3rKfApssW4cfITYVax\nFtdbu0IUsgEeXs3EzNw8yIYnsaoZlFwLS8SMVsiAFOy2y14lR9043PYAQHm1Cjaf\noQIDAQAB\n-----END PUBLIC KEY-----".to_string(),
+            machine_id: machine_id::get_machine_id_ob(),
+            running_status: "空闲".to_string(),
+            is_loading: false,
+            logs: Vec::new(),
+            task_manager: Box::new(TaskManagerImpl::new()),
+            local_captcha: LocalCaptcha::new(),
+        };
+
+        let ui_state = UiState {
+            selected_tab: 0,
+            show_log_window: false,
+            show_login_window: false,
             show_add_buyer_window: None,
             show_orderlist_window: None,
+            show_qr_windows: None,
+            delete_account: None,
+            account_switch: None,
+            selected_account_uid: None,
             total_order_data: None,
             orderlist_need_reload: false,
             orderlist_last_request_time: None,
             orderlist_requesting: false,
-            show_qr_windows: None,
             announce1: None,
             announce2: None,
             announce3: None,
             announce4: None,
-            skip_words: config.skip_words.clone(),
-            skip_words_input: String::new(),
-            config,
-            local_captcha: LocalCaptcha::new(),
         };
 
-        if state.custom_config.open_custom_ua && !state.custom_config.custom_ua.is_empty() {
-            state.default_ua = state.custom_config.custom_ua.clone();
-        }
-
-        state.client = create_client(state.default_ua.clone());
-
-        for account in &mut state.accounts {
-            account.ensure_client();
-        }
-
         Self {
-            inner: Arc::new(Mutex::new(state)),
+            config: Arc::new(Mutex::new(config_state)),
+            ticket: Arc::new(Mutex::new(ticket_state)),
+            auth: Arc::new(Mutex::new(auth_state)),
+            runtime: Arc::new(Mutex::new(runtime_state)),
+            ui: Arc::new(Mutex::new(ui_state)),
         }
     }
 }

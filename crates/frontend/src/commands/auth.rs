@@ -8,13 +8,19 @@ use tauri::State;
 
 #[tauri::command]
 pub fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    let state = state
-        .inner
+    let auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "auth lock failed".to_string())?;
+    
+    // We need to unlock runtime to submit task? No, runtime is different lock.
+    let mut runtime = state
+        .runtime
+        .lock()
+        .map_err(|_| "runtime lock failed".to_string())?;
 
     let qrcode_key =
-        common::login::qrcode_login(&state.client).map_err(|e| format!("生成二维码失败: {}", e))?;
+        common::login::qrcode_login(&auth.client).map_err(|e| format!("生成二维码失败: {}", e))?;
 
     let qrcode_url = format!(
         "https://passport.bilibili.com/h5-app/passport/login/scan?qrcode_key={}",
@@ -44,13 +50,11 @@ pub fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, Str
     let request = TaskRequest::QrCodeLoginRequest(common::taskmanager::QrCodeLoginRequest {
         qrcode_key: qrcode_key.clone(),
         qrcode_url: qrcode_url.clone(),
-        user_agent: Some(state.default_ua.clone()),
+        user_agent: Some(auth.default_ua.clone()),
     });
 
-    let task_id = state
+    let task_id = runtime
         .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(request)
         .map_err(|e| format!("提交二维码登录任务失败: {}", e))?;
 
@@ -67,15 +71,15 @@ pub fn poll_qrcode_status(
     state: State<'_, AppState>,
     key: String,
 ) -> Result<serde_json::Value, String> {
-    let state = state
-        .inner
+    let auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "auth lock failed".to_string())?;
 
     let rt = tokio::runtime::Runtime::new().map_err(|e| format!("创建运行时失败: {}", e))?;
 
     let status =
-        rt.block_on(async { backend::api::poll_qrcode_login(&key, Some(&state.default_ua)).await });
+        rt.block_on(async { backend::api::poll_qrcode_login(&key, Some(&auth.default_ua)).await });
 
     match status {
         common::login::QrCodeLoginStatus::Pending => Ok(json!({
@@ -117,11 +121,11 @@ pub async fn get_country_list_command(
     state: State<'_, AppState>,
 ) -> Result<Vec<common::login::Country>, String> {
     let client = {
-        let state = state
-            .inner
+        let auth = state
+            .auth
             .lock()
-            .map_err(|_| "state lock failed".to_string())?;
-        state.client.clone()
+            .map_err(|_| "auth lock failed".to_string())?;
+        auth.client.clone()
     };
     common::login::get_country_list(&client).await
 }
@@ -132,23 +136,29 @@ pub fn send_loginsms_command(
     phone_number: String,
     cid: i32,
 ) -> Result<String, String> {
-    let state = state
-        .inner
+    let auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "auth lock failed".to_string())?;
+    let config = state
+        .config
+        .lock()
+        .map_err(|_| "config lock failed".to_string())?;
+    let mut runtime = state
+        .runtime
+        .lock()
+        .map_err(|_| "runtime lock failed".to_string())?;
 
     let request = TaskRequest::LoginSmsRequest(common::taskmanager::LoginSmsRequest {
         phone: phone_number.clone(),
         cid,
-        client: state.client.clone(),
-        custom_config: state.custom_config.clone(),
+        client: auth.client.clone(),
+        custom_config: config.custom_config.clone(),
         local_captcha: common::captcha::LocalCaptcha::new(),
     });
 
-    let result = state
+    let result = runtime
         .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(request)
         .map_err(|e| format!("submit sms login request failed: {}", e));
 
@@ -163,23 +173,25 @@ pub fn submit_loginsms_command(
     captcha_key: String,
     sms_code: String,
 ) -> Result<String, String> {
-    let state = state
-        .inner
+    let auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "auth lock failed".to_string())?;
+    let mut runtime = state
+        .runtime
+        .lock()
+        .map_err(|_| "runtime lock failed".to_string())?;
 
     let request = TaskRequest::SubmitLoginSmsRequest(common::taskmanager::SubmitLoginSmsRequest {
         phone: phone_number,
         cid,
         code: sms_code,
         captcha_key,
-        client: state.client.clone(),
+        client: auth.client.clone(),
     });
 
-    let result = state
+    let result = runtime
         .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(request)
         .map_err(|e| format!("submit sms login failed: {}", e));
 
@@ -192,10 +204,18 @@ pub fn password_login_command(
     username: String,
     password: String,
 ) -> Result<String, String> {
-    let state = state
-        .inner
+    let auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "auth lock failed".to_string())?;
+    let config = state
+        .config
+        .lock()
+        .map_err(|_| "config lock failed".to_string())?;
+    let mut runtime = state
+        .runtime
+        .lock()
+        .map_err(|_| "runtime lock failed".to_string())?;
 
     let task_id = uuid::Uuid::new_v4().to_string();
     let request = common::taskmanager::TaskRequest::PasswordLoginRequest(
@@ -203,16 +223,14 @@ pub fn password_login_command(
             task_id: task_id.clone(),
             username,
             password,
-            client: state.client.clone(),
-            custom_config: state.custom_config.clone(),
+            client: auth.client.clone(),
+            custom_config: config.custom_config.clone(),
             local_captcha: common::captcha::LocalCaptcha::new(),
         },
     );
 
-    let result = state
+    let result = runtime
         .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(request)
         .map_err(|e| format!("submit password login failed: {}", e));
 
@@ -221,40 +239,40 @@ pub fn password_login_command(
 
 #[tauri::command]
 pub fn set_login_method(state: State<'_, AppState>, method: String) -> Result<(), String> {
-    let mut state = state
-        .inner
+    let mut auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
-    state.login_method = method;
+        .map_err(|_| "auth lock failed".to_string())?;
+    auth.login_method = method;
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_show_login_window(state: State<'_, AppState>, show: bool) -> Result<(), String> {
-    let mut state = state
-        .inner
+    let mut ui = state
+        .ui
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
-    state.show_login_window = show;
+        .map_err(|_| "ui lock failed".to_string())?;
+    ui.show_login_window = show;
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_login_input(state: State<'_, AppState>, input: LoginInput) -> Result<(), String> {
-    let mut state = state
-        .inner
+    let mut auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
-    state.login_input = input;
+        .map_err(|_| "auth lock failed".to_string())?;
+    auth.login_input = input;
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_cookie_login(state: State<'_, AppState>, cookie: Option<String>) -> Result<(), String> {
-    let mut state = state
-        .inner
+    let mut auth = state
+        .auth
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
-    state.cookie_login = cookie;
+        .map_err(|_| "auth lock failed".to_string())?;
+    auth.cookie_login = cookie;
     Ok(())
 }

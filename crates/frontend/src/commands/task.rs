@@ -14,12 +14,12 @@ pub fn get_ticket_info(
     uid: i64,
     project_id: String,
 ) -> Result<String, String> {
-    let state = state
-        .inner
+    let config = state
+        .config
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "config lock failed".to_string())?;
 
-    let account = state
+    let account = config
         .accounts
         .iter()
         .find(|a| a.uid == uid)
@@ -38,10 +38,13 @@ pub fn get_ticket_info(
         cookie_manager,
     });
 
-    let result = state
-        .task_manager
+    let mut runtime = state
+        .runtime
         .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
+        .map_err(|_| "runtime lock failed".to_string())?;
+
+    let result = runtime
+        .task_manager
         .submit_task(request)
         .map_err(|e| format!("submit ticket info request failed: {}", e));
 
@@ -50,12 +53,12 @@ pub fn get_ticket_info(
 
 #[tauri::command]
 pub fn get_buyer_info(state: State<'_, AppState>, uid: i64) -> Result<String, String> {
-    let state = state
-        .inner
+    let config = state
+        .config
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "config lock failed".to_string())?;
 
-    let account = state
+    let account = config
         .accounts
         .iter()
         .find(|a| a.uid == uid)
@@ -73,10 +76,13 @@ pub fn get_buyer_info(state: State<'_, AppState>, uid: i64) -> Result<String, St
         cookie_manager,
     });
 
-    let result = state
-        .task_manager
+    let mut runtime = state
+        .runtime
         .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
+        .map_err(|_| "runtime lock failed".to_string())?;
+
+    let result = runtime
+        .task_manager
         .submit_task(request)
         .map_err(|e| format!("submit buyer info request failed: {}", e));
 
@@ -85,12 +91,12 @@ pub fn get_buyer_info(state: State<'_, AppState>, uid: i64) -> Result<String, St
 
 #[tauri::command]
 pub fn get_order_list(state: State<'_, AppState>, uid: i64) -> Result<String, String> {
-    let state = state
-        .inner
+    let config = state
+        .config
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "config lock failed".to_string())?;
 
-    let account = state
+    let account = config
         .accounts
         .iter()
         .find(|a| a.uid == uid)
@@ -110,10 +116,13 @@ pub fn get_order_list(state: State<'_, AppState>, uid: i64) -> Result<String, St
         start_time: None,
     });
 
-    let result = state
-        .task_manager
+    let mut runtime = state
+        .runtime
         .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
+        .map_err(|_| "runtime lock failed".to_string())?;
+
+    let result = runtime
+        .task_manager
         .submit_task(request)
         .map_err(|e| format!("submit order list request failed: {}", e));
 
@@ -122,16 +131,15 @@ pub fn get_order_list(state: State<'_, AppState>, uid: i64) -> Result<String, St
 
 #[tauri::command]
 pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
-    let state = state
-        .inner
+    let mut runtime = state
+        .runtime
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "runtime lock failed".to_string())?;
 
-    let results = state
+    let results = runtime
         .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
         .get_results();
+        
     let json_results: Vec<Value> = results
         .into_iter()
         .map(|result| match result {
@@ -174,16 +182,25 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                     if let Some(ticket_info) = &r.ticket_info {
                         if ticket_info.data.vip_exclusive {
                             // 检查账号是否有大会员
-                            let is_vip = state
-                                .accounts
-                                .iter()
-                                .find(|a| a.uid == r.uid)
-                                .map(|a| a.vip_status == 1)
-                                .unwrap_or(false);
+                            // We need to lock config here.
+                            // But we are holding runtime lock.
+                            // To avoid potential deadlocks (though unlikely here as config doesn't lock runtime usually),
+                            // we should be careful.
+                            // However, locking config inside loop is inefficient.
+                            // But here we are iterating over results.
+                            // Let's try to lock config.
+                            if let Ok(config) = state.config.lock() {
+                                let is_vip = config
+                                    .accounts
+                                    .iter()
+                                    .find(|a| a.uid == r.uid)
+                                    .map(|a| a.vip_status == 1)
+                                    .unwrap_or(false);
 
-                            if !is_vip {
-                                success = false;
-                                message = "该项目为大会员专属，您的账号未开通大会员".to_string();
+                                if !is_vip {
+                                    success = false;
+                                    message = "该项目为大会员专属，您的账号未开通大会员".to_string();
+                                }
                             }
                         }
                     }
@@ -215,7 +232,7 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                 "pay_result": r.pay_result,
                 "confirm_result": r.confirm_result
             }),
-            TaskResult::PasswordLoginResult(r) => json!({ // Add this
+            TaskResult::PasswordLoginResult(r) => json!({ 
                 "type": "PasswordLoginResult",
                 "task_id": r.task_id,
                 "success": r.success,
@@ -230,17 +247,12 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
 
 #[tauri::command]
 pub fn cancel_task(state: State<'_, AppState>, task_id: String) -> Result<(), String> {
-    let state = state
-        .inner
+    let mut runtime = state
+        .runtime
         .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+        .map_err(|_| "runtime lock failed".to_string())?;
 
-    let mut task_manager = state
-        .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?;
-
-    task_manager.cancel_task(&task_id)?;
+    runtime.task_manager.cancel_task(&task_id)?;
 
     log::info!("已取消任务: {}", task_id);
     Ok(())
@@ -248,25 +260,27 @@ pub fn cancel_task(state: State<'_, AppState>, task_id: String) -> Result<(), St
 
 #[tauri::command]
 pub fn start_grab_ticket(state: State<'_, AppState>) -> Result<String, String> {
-    let state = state
-        .inner
-        .lock()
-        .map_err(|_| "state lock failed".to_string())?;
+    // Acquire all necessary locks
+    let config = state.config.lock().map_err(|_| "config lock failed")?;
+    let ticket = state.ticket.lock().map_err(|_| "ticket lock failed")?;
+    let auth = state.auth.lock().map_err(|_| "auth lock failed")?;
+    let ui = state.ui.lock().map_err(|_| "ui lock failed")?;
+    let mut runtime = state.runtime.lock().map_err(|_| "runtime lock failed")?;
 
     // 验证必要信息
-    if state.ticket_id.is_empty() {
+    if ticket.ticket_id.is_empty() {
         return Err("请先选择项目".to_string());
     }
 
-    if state.accounts.is_empty() {
+    if config.accounts.is_empty() {
         return Err("请先添加账号".to_string());
     }
 
     // 获取选中的账号或使用第一个活跃账号
-    let selected_account = if let Some(uid) = state.selected_account_uid {
-        state.accounts.iter().find(|acc| acc.uid == uid)
+    let selected_account = if let Some(uid) = ui.selected_account_uid {
+        config.accounts.iter().find(|acc| acc.uid == uid)
     } else {
-        state.accounts.iter().find(|acc| acc.is_active)
+        config.accounts.iter().find(|acc| acc.is_active)
     };
 
     let account = selected_account
@@ -278,27 +292,27 @@ pub fn start_grab_ticket(state: State<'_, AppState>) -> Result<String, String> {
         .clone()
         .ok_or_else(|| "账号未初始化，请重新添加账号".to_string())?;
 
-    let (id_bind, buyer_info, no_bind_buyer_info) = match state.buyer_type {
+    let (id_bind, buyer_info, no_bind_buyer_info) = match ticket.buyer_type {
         0 => {
             // 非实名购票人信息
-            if state.selected_no_bind_buyer_info.is_none() {
+            if ticket.selected_no_bind_buyer_info.is_none() {
                 return Err("请先设置非实名购票人信息".to_string());
             }
-            (0, None, state.selected_no_bind_buyer_info.clone())
+            (0, None, ticket.selected_no_bind_buyer_info.clone())
         }
         1 => {
             // 实名购票人信息
-            if state.selected_buyer_list.is_none() {
+            if ticket.selected_buyer_list.is_none() {
                 return Err("请先选择实名购票人信息".to_string());
             }
-            (1, state.selected_buyer_list.clone(), None)
+            (1, ticket.selected_buyer_list.clone(), None)
         }
         2 => {
             // 实名购票人信息（备用模式）
-            if state.selected_buyer_list.is_none() {
+            if ticket.selected_buyer_list.is_none() {
                 return Err("请先选择实名购票人信息".to_string());
             }
-            (2, state.selected_buyer_list.clone(), None)
+            (2, ticket.selected_buyer_list.clone(), None)
         }
         _ => {
             return Err("无效的购票人类型".to_string());
@@ -308,24 +322,24 @@ pub fn start_grab_ticket(state: State<'_, AppState>) -> Result<String, String> {
     let biliticket = BilibiliTicket {
         uid: account.uid,
         method: 0,
-        ua: state.default_ua.clone(),
-        config: state.custom_config.clone(),
+        ua: auth.default_ua.clone(),
+        config: config.custom_config.clone(),
         account: account.clone(),
-        push_self: state.push_config.clone(),
-        status_delay: state.status_delay,
+        push_self: config.push_config.clone(),
+        status_delay: ticket.status_delay,
         captcha_use_type: 0,
         cookie_manager: account.cookie_manager.clone(),
-        project_id: state.ticket_id.clone(),
-        screen_id: state
+        project_id: ticket.ticket_id.clone(),
+        screen_id: ticket
             .selected_screen_id
             .map(|id| id.to_string())
             .unwrap_or_default(),
         id_bind,
-        project_info: state.ticket_info.clone(),
+        project_info: ticket.ticket_info.clone(),
         all_buyer_info: None,
         buyer_info,
         no_bind_buyer_info,
-        select_ticket_id: state.selected_ticket_id.map(|id| id.to_string()),
+        select_ticket_id: ticket.selected_ticket_id.map(|id| id.to_string()),
         pay_money: None,
         count: Some(1),
         device_id: String::new(),
@@ -345,32 +359,30 @@ pub fn start_grab_ticket(state: State<'_, AppState>) -> Result<String, String> {
     let grab_request = TaskRequest::GrabTicketRequest(GrabTicketRequest {
         task_id: task_id.clone(),
         uid: account.uid,
-        project_id: state.ticket_id.clone(),
-        screen_id: state
+        project_id: ticket.ticket_id.clone(),
+        screen_id: ticket
             .selected_screen_id
             .map(|id| id.to_string())
             .unwrap_or_default(),
-        ticket_id: state
+        ticket_id: ticket
             .selected_ticket_id
             .map(|id| id.to_string())
             .unwrap_or_default(),
         count: 1,
-        buyer_info: state.selected_buyer_list.clone().unwrap_or_default(),
+        buyer_info: ticket.selected_buyer_list.clone().unwrap_or_default(),
         cookie_manager,
         biliticket,
-        grab_mode: state.grab_mode,
+        grab_mode: ticket.grab_mode,
         status: TaskStatus::Pending,
         start_time: None,
         is_hot: false,
-        local_captcha: state.local_captcha.clone(),
-        skip_words: None,
+        local_captcha: runtime.local_captcha.clone(),
+        skip_words: config.skip_words.clone(),
     });
 
     // 提交任务
-    state
+    runtime
         .task_manager
-        .lock()
-        .map_err(|_| "Failed to lock task manager".to_string())?
         .submit_task(grab_request)
         .map_err(|e| format!("提交抢票任务失败: {}", e))?;
 

@@ -36,14 +36,12 @@ fn main() {
 
                     let state = handle_task.state::<AppState>();
 
-                    if let Ok(state_inner) = state.inner.lock() {
-                        if let Ok(mut task_manager) = state_inner.task_manager.lock() {
-                            let results: Vec<common::taskmanager::TaskResult> =
-                                task_manager.get_results();
-                            for result in results {
-                                if let Err(e) = handle_task.emit("task-update", &result) {
-                                    log::error!("任务更新事件无法发出: {}", e);
-                                }
+                    if let Ok(mut runtime) = state.runtime.lock() {
+                        let results: Vec<common::taskmanager::TaskResult> =
+                            runtime.task_manager.get_results();
+                        for result in results {
+                            if let Err(e) = handle_task.emit("task-update", &result) {
+                                log::error!("任务更新事件无法发出: {}", e);
                             }
                         }
                     }
