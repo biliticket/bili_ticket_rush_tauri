@@ -148,6 +148,21 @@ async fn timed_grab_ticket_mode(
     local_captcha: Option<common::captcha::LocalCaptcha>,
 ) {
     log::debug!("定时抢票模式");
+    
+    // 如果没有项目详情，尝试自动获取
+    let project_info = if project_info.is_none() {
+        log::info!("后台项目信息缺失，正在自动获取以确定开始时间...");
+        match get_project(cookie_manager.clone(), &project_id).await {
+            Ok(resp) => Some(resp.data),
+            Err(e) => {
+                log::error!("自动获取项目详情失败: {}", e);
+                None
+            }
+        }
+    } else {
+        project_info
+    };
+
     let mut countdown = match get_countdown(cookie_manager.clone(), project_info).await {
         Ok(countdown) => countdown,
         Err(e) => {

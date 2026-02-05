@@ -16,14 +16,16 @@ pub async fn get_countdown(
     cookie_manager: Arc<CookieManager>,
     info: Option<TicketInfo>,
 ) -> Result<f64, String> {
-    // 获取开始时间 (秒级)
-    let sale_begin_sec = match info {
+    let mut sale_begin_sec = match info {
         Some(info) => info.sale_begin,
-        None => return Err("获取开始时间失败".to_string()),
+        None => return Err("获取开始时间失败，项目信息为空".to_string()),
     };
-    log::debug!("获取开始时间(秒级)：{}", sale_begin_sec);
 
-    // 获取网络时间 (秒级)
+    if sale_begin_sec > 10_000_000_000 {
+        log::debug!("检测到毫秒级时间戳，进行转换: {}", sale_begin_sec);
+        sale_begin_sec /= 1000;
+    }
+    
     let url = "https://api.bilibili.com/x/click-interface/click/now";
     let response = cookie_manager.get(url).await;
     let now_sec = match response.send().await {
