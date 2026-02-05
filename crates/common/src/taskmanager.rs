@@ -358,4 +358,7 @@ pub trait TaskManager: Send + 'static {
 
     // 关闭任务管理器
     fn shutdown(&mut self);
+
+    // 设置结果发送通道
+    fn set_result_sender(&mut self, sender: tokio::sync::mpsc::Sender<TaskResult>);
 }

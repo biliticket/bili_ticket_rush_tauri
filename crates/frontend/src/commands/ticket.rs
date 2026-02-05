@@ -25,15 +25,6 @@ pub fn set_grab_mode(state: State<'_, AppState>, mode: u8) -> Result<(), String>
 
     ticket.grab_mode = mode;
     config.config.grab_mode = mode;
-    // We don't save config here immediately? Original code only set `state.grab_mode`.
-    // `state.config.grab_mode` was updated in `save_settings`.
-    // Wait, original:
-    // state.grab_mode = mode;
-    // Ok(())
-    // So it seems it was only runtime.
-    // I'll stick to updating TicketState grab_mode.
-    // But I will also update config.config.grab_mode to keep them in sync in memory.
-
     Ok(())
 }
 

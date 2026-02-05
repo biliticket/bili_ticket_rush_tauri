@@ -155,37 +155,3 @@ impl Account {
         }
     }
 }
-
-// 创建client
-fn create_client_for_account(_cookie: &str) -> reqwest::Client {
-    use reqwest::header;
-
-    let random_id = format!(
-        "{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .subsec_nanos()
-    );
-
-    let user_agent = format!(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 {}",
-        random_id
-    );
-
-    let mut headers = header::HeaderMap::new();
-    headers.insert(
-        header::USER_AGENT,
-        header::HeaderValue::from_str(&user_agent).unwrap_or_else(|_| {
-            // 提供一个替代 value，而不是使用 unwrap_or_default()
-            header::HeaderValue::from_static("Mozilla/5.0")
-        }),
-    );
-
-    // 创建 client
-    reqwest::Client::builder()
-        .default_headers(headers)
-        .cookie_store(true)
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new())
-}

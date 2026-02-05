@@ -30,23 +30,24 @@ fn main() {
             });
 
             let handle_task = app.handle().clone();
-            std::thread::spawn(move || {
-                loop {
-                    std::thread::sleep(std::time::Duration::from_millis(500));
+            let state = handle_task.state::<AppState>();
+            let mut result_rx = None;
 
-                    let state = handle_task.state::<AppState>();
+            if let Ok(mut runtime) = state.runtime.lock() {
+                result_rx = runtime.result_receiver.take();
+            }
 
-                    if let Ok(mut runtime) = state.runtime.lock() {
-                        let results: Vec<common::taskmanager::TaskResult> =
-                            runtime.task_manager.get_results();
-                        for result in results {
-                            if let Err(e) = handle_task.emit("task-update", &result) {
-                                log::error!("任务更新事件无法发出: {}", e);
-                            }
+            if let Some(mut rx) = result_rx {
+                tauri::async_runtime::spawn(async move {
+                    while let Some(result) = rx.recv().await {
+                        if let Err(e) = handle_task.emit("task-update", &result) {
+                            log::error!("任务更新事件无法发出: {}", e);
                         }
                     }
-                }
-            });
+                });
+            } else {
+                log::error!("Failed to take result receiver");
+            }
 
             Ok(())
         })

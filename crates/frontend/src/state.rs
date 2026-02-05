@@ -14,6 +14,7 @@ use common::ticket::{BilibiliTicket, TicketInfo};
 use common::ticket::{BuyerInfo, NoBindBuyerInfo};
 
 use crate::utils::{create_client, default_user_agent};
+use tokio::sync::mpsc;
 
 pub const APP_NAME: &str = "BTR";
 pub const APP_VERSION: &str = "7.0.0";
@@ -40,7 +41,7 @@ pub struct TicketState {
     pub ticket_id: String,
     pub grab_mode: u8,
     pub status_delay: usize,
-
+    
     pub bilibiliticket_list: Vec<BilibiliTicket>,
     pub ticket_info: Option<TicketInfo>,
     pub show_screen_info: Option<i64>,
@@ -71,13 +72,14 @@ pub struct RuntimeState {
     pub policy: Option<Value>,
     pub public_key: String,
     pub machine_id: String,
-
+    
     pub running_status: String,
     pub is_loading: bool,
     pub logs: Vec<String>,
-
+    
     pub task_manager: Box<dyn TaskManager + Send>,
     pub local_captcha: LocalCaptcha,
+    pub result_receiver: Option<mpsc::Receiver<common::taskmanager::TaskResult>>,
 }
 
 pub struct UiState {
@@ -134,7 +136,6 @@ impl AppState {
             cookie_login: None,
         };
 
-        // Custom UA logic
         if config.custom_config.open_custom_ua && !config.custom_config.custom_ua.is_empty() {
             auth_state.default_ua = config.custom_config.custom_ua.clone();
         }
@@ -169,6 +170,10 @@ impl AppState {
             buyer_type: 1,
         };
 
+        let (tx, rx) = mpsc::channel(100);
+        let mut task_manager = Box::new(TaskManagerImpl::new());
+        task_manager.set_result_sender(tx);
+
         let runtime_state = RuntimeState {
             app: APP_NAME.to_string(),
             version: APP_VERSION.to_string(),
@@ -178,8 +183,9 @@ impl AppState {
             running_status: "空闲".to_string(),
             is_loading: false,
             logs: Vec::new(),
-            task_manager: Box::new(TaskManagerImpl::new()),
+            task_manager,
             local_captcha: LocalCaptcha::new(),
+            result_receiver: Some(rx),
         };
 
         let ui_state = UiState {
