@@ -13,7 +13,6 @@ pub fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, Str
         .lock()
         .map_err(|_| "auth lock failed".to_string())?;
     
-    // We need to unlock runtime to submit task? No, runtime is different lock.
     let mut runtime = state
         .runtime
         .lock()

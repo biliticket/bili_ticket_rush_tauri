@@ -81,6 +81,9 @@ impl LogCollector {
     }
     //添加日志
     pub fn add(&mut self, message: String) {
+        if self.logs.len() >= 5000 {
+            self.logs.drain(0..1000);
+        }
         self.logs.push(message);
     }
 
@@ -113,6 +116,9 @@ impl GrabLogCollector {
 
     //添加抢票日志
     pub fn add(&mut self, message: String) {
+        if self.logs.len() >= 5000 {
+            self.logs.drain(0..1000);
+        }
         self.logs.push(message);
     }
 

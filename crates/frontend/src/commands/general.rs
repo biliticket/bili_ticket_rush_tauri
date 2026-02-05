@@ -344,7 +344,6 @@ pub fn save_settings(
     user_agent: String,
     skip_words: Option<Vec<String>>,
 ) -> Result<(), String> {
-    // We need to lock multiple states: config, ticket, auth (for client update)
     let mut config = state
         .config
         .lock()

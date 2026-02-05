@@ -182,13 +182,6 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                     if let Some(ticket_info) = &r.ticket_info {
                         if ticket_info.data.vip_exclusive {
                             // 检查账号是否有大会员
-                            // We need to lock config here.
-                            // But we are holding runtime lock.
-                            // To avoid potential deadlocks (though unlikely here as config doesn't lock runtime usually),
-                            // we should be careful.
-                            // However, locking config inside loop is inefficient.
-                            // But here we are iterating over results.
-                            // Let's try to lock config.
                             if let Ok(config) = state.config.lock() {
                                 let is_vip = config
                                     .accounts
