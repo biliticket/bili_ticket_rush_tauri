@@ -1224,15 +1224,107 @@ async function init() {
 }
 
 let allLogs = [];
+let logSet = new Set();
+let logStatsCounter = { info: 0, debug: 0, warn: 0, error: 0 };
 let autoScrollEnabled = true;
 let logFilters = { info: true, debug: true, warn: true, error: true, success: true };
+
+function getLogLevel(log) {
+    if (log.includes("INFO:")) return "info";
+    if (log.includes("DEBUG:")) return "debug";
+    if (log.includes("WARN:")) return "warn";
+    if (log.includes("ERROR:")) return "error";
+    return "success";
+}
+
+function handleIncomingLog(log) {
+  if (!logSet.has(log)) {
+    logSet.add(log);
+    allLogs.push(log);
+    
+    const level = getLogLevel(log);
+    if (logStatsCounter[level] !== undefined) {
+        logStatsCounter[level]++;
+    }
+
+    if (allLogs.length > 5000) {
+      const removed = allLogs.shift();
+      logSet.delete(removed);
+      const removedLevel = getLogLevel(removed);
+      if (logStatsCounter[removedLevel] !== undefined) {
+          logStatsCounter[removedLevel]--;
+      }
+    }
+
+    const logCountEl = document.getElementById("log-count");
+    if (logCountEl) {
+      logCountEl.textContent = allLogs.length;
+    }
+
+    const grabTab = document.getElementById("tab-grab");
+    if (grabTab && grabTab.classList.contains("active")) {
+        appendLogEntry(log);
+    } else {
+      updateLogStats();
+    }
+  }
+}
+
+function appendLogEntry(log) {
+    const container = document.getElementById("grab-logs-container");
+    if (!container) return;
+
+    const level = getLogLevel(log);
+    let visible = false;
+    if (level === "info" && logFilters.info) visible = true;
+    else if (level === "debug" && logFilters.debug) visible = true;
+    else if (level === "warn" && logFilters.warn) visible = true;
+    else if (level === "error" && logFilters.error) visible = true;
+    else if (level === "success" && logFilters.success) visible = true;
+
+    const searchTerm = document.getElementById("log-search")?.value.toLowerCase();
+    if (visible && searchTerm && !log.toLowerCase().includes(searchTerm)) {
+        visible = false;
+    }
+
+    if (visible) {
+        if (container.firstElementChild && container.firstElementChild.textContent.includes("暂无")) {
+            container.innerHTML = "";
+        }
+        
+        container.insertAdjacentHTML('beforeend', formatLogEntry(log));
+        
+        if (container.childElementCount > 5000) {
+            container.firstElementChild.remove();
+        }
+
+        if (autoScrollEnabled) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+    
+    updateLogStats();
+}
 
 async function loadInitialLogs() {
   try {
     if (!invoke) throw new Error("Tauri invoke function not available");
     const logs = await invoke("get_logs");
-    if (logs && logs.length > 0) { allLogs = logs; updateLogsDisplay(); }
-    else { document.getElementById("grab-logs-container").innerHTML = '<div class="log-entry">暂无日志</div>'; updateLogStats(); }
+    if (logs && logs.length > 0) { 
+        allLogs = logs;
+        logSet = new Set(allLogs);
+        // 重新初始化统计计数器
+        logStatsCounter = { info: 0, debug: 0, warn: 0, error: 0 };
+        allLogs.forEach(log => {
+            const level = getLogLevel(log);
+            if (logStatsCounter[level] !== undefined) logStatsCounter[level]++;
+        });
+        updateLogsDisplay(); 
+    }
+    else { 
+        document.getElementById("grab-logs-container").innerHTML = '<div class="log-entry">暂无日志</div>'; 
+        updateLogStats(); 
+    }
   } catch (error) { console.error("加载日志失败:", error); }
 }
 
@@ -1240,10 +1332,11 @@ function updateLogsDisplay() {
   const container = document.getElementById("grab-logs-container");
   if (!container) return;
   const filtered = allLogs.filter(log => {
-    if (log.includes("INFO:")) return logFilters.info;
-    if (log.includes("DEBUG:")) return logFilters.debug;
-    if (log.includes("WARN:")) return logFilters.warn;
-    if (log.includes("ERROR:")) return logFilters.error;
+    const level = getLogLevel(log);
+    if (level === "info") return logFilters.info;
+    if (level === "debug") return logFilters.debug;
+    if (level === "warn") return logFilters.warn;
+    if (level === "error") return logFilters.error;
     return logFilters.success;
   });
   if (filtered.length > 0) {
@@ -1265,18 +1358,11 @@ function formatLogEntry(log) {
 }
 
 function updateLogStats() {
-  const stats = { info: 0, debug: 0, warn: 0, error: 0 };
-  allLogs.forEach(log => {
-    if (log.includes("INFO:")) stats.info++;
-    else if (log.includes("DEBUG:")) stats.debug++;
-    else if (log.includes("WARN:")) stats.warn++;
-    else if (log.includes("ERROR:")) stats.error++;
-  });
   document.getElementById("grab-log-count").textContent = allLogs.length;
   document.getElementById("log-count").textContent = allLogs.length;
   ["info", "debug", "warn", "error"].forEach(lv => {
     const el = document.getElementById(`${lv}-count`);
-    if (el) el.textContent = stats[lv];
+    if (el) el.textContent = logStatsCounter[lv];
   });
 }
 
@@ -1285,6 +1371,8 @@ async function clearAllLogs() {
   try {
     await invoke("clear_logs");
     allLogs = [];
+    logSet = new Set();
+    logStatsCounter = { info: 0, debug: 0, warn: 0, error: 0 };
     updateLogsDisplay();
   } catch (error) { showError("清空失败: " + error); }
 }
