@@ -58,7 +58,7 @@ pub async fn get_policy(state: State<'_, AppState>) -> Result<Value, String> {
             runtime.public_key.clone(),
         )
     };
-    
+
     let client = {
         let auth = state
             .auth
@@ -95,7 +95,7 @@ pub async fn get_policy(state: State<'_, AppState>) -> Result<Value, String> {
 
     let policy_token = value["data"]["data"].as_str().unwrap_or("");
     let policy = decode_policy(policy_token, &public_key)?;
-    
+
     if let Some(permission_token) = value["data"]["permission"].as_str() {
         let permissions = decode_permissions(permission_token, &public_key)?;
         save_permissions(permission_token);
@@ -133,11 +133,8 @@ pub fn get_app_info(state: State<'_, AppState>) -> Result<Value, String> {
         .runtime
         .lock()
         .map_err(|_| "runtime lock failed".to_string())?;
-    let ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
-        
+    let ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
+
     Ok(json!({
         "app": runtime.app,
         "version": runtime.version,
@@ -163,10 +160,7 @@ pub fn set_show_qr_windows(
     state: State<'_, AppState>,
     qr_data: Option<String>,
 ) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.show_qr_windows = qr_data;
     Ok(())
 }
@@ -227,7 +221,8 @@ pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
             "password": auth.login_input.password,
             "cookie": auth.login_input.cookie,
             "sms_code": auth.login_input.sms_code
-        }
+        },
+        "custom_config": config.custom_config
     }))
 }
 
@@ -286,7 +281,6 @@ pub fn delete_project(state: State<'_, AppState>, id: String) -> Result<(), Stri
         return Err("未找到指定ID的项目".to_string());
     }
 
-    // 保存配置
     if let Err(e) = config.config.save_config() {
         log::error!("删除项目后保存失败: {}", e);
         return Err(format!("删除项目后保存失败: {}", e));
@@ -343,6 +337,11 @@ pub fn save_settings(
     custom_ua: bool,
     user_agent: String,
     skip_words: Option<Vec<String>>,
+    max_token_retry: u8,
+    max_confirm_retry: u8,
+    max_fake_check_retry: u32,
+    max_order_retry: u32,
+    retry_interval_ms: u64,
 ) -> Result<(), String> {
     let mut config = state
         .config
@@ -357,13 +356,17 @@ pub fn save_settings(
         .lock()
         .map_err(|_| "auth lock failed".to_string())?;
 
-    // Update TicketState
     ticket.grab_mode = grab_mode;
     ticket.status_delay = delay_time as usize;
-    
-    // Update ConfigState
+
     config.custom_config.open_custom_ua = custom_ua;
     config.custom_config.custom_ua = user_agent.clone();
+    config.custom_config.max_token_retry = max_token_retry;
+    config.custom_config.max_confirm_retry = max_confirm_retry;
+    config.custom_config.max_fake_check_retry = max_fake_check_retry;
+    config.custom_config.max_order_retry = max_order_retry;
+    config.custom_config.retry_interval_ms = retry_interval_ms;
+
     config.push_config.enabled = enable_push;
     config.push_config.enabled_methods = enabled_methods;
     config.push_config.bark_token = bark_token;
@@ -375,7 +378,6 @@ pub fn save_settings(
     config.push_config.gotify_config.gotify_token = gotify_token;
     config.skip_words = skip_words.clone();
 
-    // Update the config struct inside ConfigState
     config.config.grab_mode = grab_mode;
     config.config.delay_time = delay_time;
     config.config.max_attempts = max_attempts;
@@ -383,7 +385,6 @@ pub fn save_settings(
     config.config.custom_config = config.custom_config.clone();
     config.config.skip_words = skip_words;
 
-    // Update AuthState (Client)
     if custom_ua && !user_agent.is_empty() {
         auth.default_ua = user_agent.clone();
         auth.client = create_client(user_agent);

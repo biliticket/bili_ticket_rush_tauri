@@ -1,12 +1,10 @@
 use crate::account::Account;
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::io;
 use std::path::Path;
 
-// --- Project Struct ---
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
@@ -16,13 +14,12 @@ pub struct Project {
     pub updated_at: u64,
 }
 
-// --- Main Config Struct ---
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BtrConfig {
     #[serde(default)]
     pub accounts: Vec<Account>,
     #[serde(default)]
-    pub projects: Vec<Project>, // Added projects
+    pub projects: Vec<Project>,
     #[serde(default)]
     pub push_config: PushConfig,
     #[serde(default)]
@@ -45,12 +42,27 @@ fn default_delay_time() -> u64 {
 fn default_max_attempts() -> u64 {
     100
 }
+fn default_max_token_retry() -> u8 {
+    5
+}
+fn default_max_confirm_retry() -> u8 {
+    4
+}
+fn default_max_fake_check_retry() -> u32 {
+    10
+}
+fn default_max_order_retry() -> u32 {
+    30
+}
+fn default_retry_interval_ms() -> u64 {
+    400
+}
 
 impl Default for BtrConfig {
     fn default() -> Self {
         BtrConfig {
             accounts: Vec::new(),
-            projects: Vec::new(), // Added projects
+            projects: Vec::new(),
             push_config: PushConfig::default(),
             custom_config: CustomConfig::default(),
             grab_mode: 0,
@@ -113,7 +125,6 @@ impl BtrConfig {
     }
 }
 
-// --- Push Config Structs ---
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PushConfig {
     pub enabled: bool,
@@ -148,7 +159,6 @@ pub struct GotifyConfig {
     pub gotify_token: String,
 }
 
-// --- Custom Config Struct ---
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CustomConfig {
     pub open_custom_ua: bool,
@@ -157,6 +167,16 @@ pub struct CustomConfig {
     pub ttocr_key: String,
     pub preinput_phone1: String,
     pub preinput_phone2: String,
+    #[serde(default = "default_max_token_retry")]
+    pub max_token_retry: u8,
+    #[serde(default = "default_max_confirm_retry")]
+    pub max_confirm_retry: u8,
+    #[serde(default = "default_max_fake_check_retry")]
+    pub max_fake_check_retry: u32,
+    #[serde(default = "default_max_order_retry")]
+    pub max_order_retry: u32,
+    #[serde(default = "default_retry_interval_ms")]
+    pub retry_interval_ms: u64,
 }
 
 impl Default for CustomConfig {
@@ -170,6 +190,11 @@ impl Default for CustomConfig {
             ttocr_key: String::new(),
             preinput_phone1: String::new(),
             preinput_phone2: String::new(),
+            max_token_retry: default_max_token_retry(),
+            max_confirm_retry: default_max_confirm_retry(),
+            max_fake_check_retry: default_max_fake_check_retry(),
+            max_order_retry: default_max_order_retry(),
+            retry_interval_ms: default_retry_interval_ms(),
         }
     }
 }

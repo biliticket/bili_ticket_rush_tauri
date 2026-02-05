@@ -1,12 +1,12 @@
-use tauri::State;
-use serde_json::{json, Value};
+use crate::state::AppState;
 use common::taskmanager::{
-    GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, TaskRequest,
-    TaskStatus, TaskResult, GrabTicketRequest
+    GetAllorderRequest, GetBuyerInfoRequest, GetTicketInfoRequest, GrabTicketRequest, TaskRequest,
+    TaskResult, TaskStatus,
 };
 use common::ticket::BilibiliTicket;
-use crate::state::AppState;
+use serde_json::{Value, json};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::State;
 
 #[tauri::command]
 pub fn get_ticket_info(
@@ -136,10 +136,8 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
         .lock()
         .map_err(|_| "runtime lock failed".to_string())?;
 
-    let results = runtime
-        .task_manager
-        .get_results();
-        
+    let results = runtime.task_manager.get_results();
+
     let json_results: Vec<Value> = results
         .into_iter()
         .map(|result| match result {
@@ -192,7 +190,8 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
 
                                 if !is_vip {
                                     success = false;
-                                    message = "该项目为大会员专属，您的账号未开通大会员".to_string();
+                                    message =
+                                        "该项目为大会员专属，您的账号未开通大会员".to_string();
                                 }
                             }
                         }
@@ -225,7 +224,7 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                 "pay_result": r.pay_result,
                 "confirm_result": r.confirm_result
             }),
-            TaskResult::PasswordLoginResult(r) => json!({ 
+            TaskResult::PasswordLoginResult(r) => json!({
                 "type": "PasswordLoginResult",
                 "task_id": r.task_id,
                 "success": r.success,

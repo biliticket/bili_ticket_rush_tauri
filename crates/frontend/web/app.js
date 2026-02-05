@@ -1093,6 +1093,16 @@ async function loadSettings() {
     document.getElementById("delay-time").value = state.status_delay || "2";
     document.getElementById("max-attempts").value = state.config?.max_attempts || "100";
     document.getElementById("skip-words-input").value = state.skip_words ? state.skip_words.join(", ") : "";
+    
+    // Load retry config
+    if (state.custom_config) {
+        document.getElementById("max-token-retry").value = state.custom_config.max_token_retry || "5";
+        document.getElementById("max-confirm-retry").value = state.custom_config.max_confirm_retry || "4";
+        document.getElementById("max-fake-check-retry").value = state.custom_config.max_fake_check_retry || "10";
+        document.getElementById("max-order-retry").value = state.custom_config.max_order_retry || "30";
+        document.getElementById("retry-interval-ms").value = state.custom_config.retry_interval_ms || "400";
+    }
+
     if (state.push_config) {
       document.getElementById("enable-push").checked = state.push_config.enabled || false;
       document.getElementById("bark-token").value = state.push_config.bark_token || "";
@@ -1140,6 +1150,13 @@ async function saveSettings() {
     const enablePush = document.getElementById("enable-push").checked;
     const skipWords = document.getElementById("skip-words-input").value.split(",").map(s => s.trim()).filter(s => s.length > 0);
     
+    // Read retry config
+    const maxTokenRetry = parseInt(document.getElementById("max-token-retry").value) || 5;
+    const maxConfirmRetry = parseInt(document.getElementById("max-confirm-retry").value) || 4;
+    const maxFakeCheckRetry = parseInt(document.getElementById("max-fake-check-retry").value) || 10;
+    const maxOrderRetry = parseInt(document.getElementById("max-order-retry").value) || 30;
+    const retryIntervalMs = parseInt(document.getElementById("retry-interval-ms").value) || 400;
+
     const enabledMethods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"].filter(m => document.getElementById(`push-method-${m}`)?.checked);
 
     await invoke("save_settings", {
@@ -1151,7 +1168,8 @@ async function saveSettings() {
       wechatToken: document.getElementById("wechat-token").value,
       gotifyUrl: document.getElementById("gotify-url").value,
       gotifyToken: document.getElementById("gotify-token").value,
-      customUa: false, userAgent: "", skipWords: skipWords.length > 0 ? skipWords : null
+      customUa: false, userAgent: "", skipWords: skipWords.length > 0 ? skipWords : null,
+      maxTokenRetry, maxConfirmRetry, maxFakeCheckRetry, maxOrderRetry, retryIntervalMs
     });
     showSuccess("保存成功");
     await loadSettings();

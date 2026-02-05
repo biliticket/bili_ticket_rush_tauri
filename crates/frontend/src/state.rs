@@ -4,14 +4,14 @@ use std::sync::{Arc, Mutex};
 
 use backend::taskmanager::TaskManagerImpl;
 use common::account::Account;
+use common::captcha::LocalCaptcha;
 use common::config::{BtrConfig as Config, CustomConfig, PushConfig};
 use common::login::LoginInput;
 use common::machine_id;
+use common::show_orderlist::OrderResponse;
 use common::taskmanager::TaskManager;
 use common::ticket::{BilibiliTicket, TicketInfo};
-use common::show_orderlist::OrderResponse;
 use common::ticket::{BuyerInfo, NoBindBuyerInfo};
-use common::captcha::LocalCaptcha;
 
 use crate::utils::{create_client, default_user_agent};
 
@@ -40,7 +40,7 @@ pub struct TicketState {
     pub ticket_id: String,
     pub grab_mode: u8,
     pub status_delay: usize,
-    
+
     pub bilibiliticket_list: Vec<BilibiliTicket>,
     pub ticket_info: Option<TicketInfo>,
     pub show_screen_info: Option<i64>,
@@ -71,11 +71,11 @@ pub struct RuntimeState {
     pub policy: Option<Value>,
     pub public_key: String,
     pub machine_id: String,
-    
+
     pub running_status: String,
     pub is_loading: bool,
     pub logs: Vec<String>,
-    
+
     pub task_manager: Box<dyn TaskManager + Send>,
     pub local_captcha: LocalCaptcha,
 }
@@ -87,16 +87,16 @@ pub struct UiState {
     pub show_add_buyer_window: Option<String>,
     pub show_orderlist_window: Option<String>,
     pub show_qr_windows: Option<String>,
-    
+
     pub delete_account: Option<String>,
     pub account_switch: Option<AccountSwitch>,
     pub selected_account_uid: Option<i64>,
-    
+
     pub total_order_data: Option<OrderData>,
     pub orderlist_need_reload: bool,
     pub orderlist_last_request_time: Option<std::time::Instant>,
     pub orderlist_requesting: bool,
-    
+
     pub announce1: Option<String>,
     pub announce2: Option<String>,
     pub announce3: Option<String>,
@@ -133,7 +133,7 @@ impl AppState {
             sms_captcha_key: String::new(),
             cookie_login: None,
         };
-        
+
         // Custom UA logic
         if config.custom_config.open_custom_ua && !config.custom_config.custom_ua.is_empty() {
             auth_state.default_ua = config.custom_config.custom_ua.clone();

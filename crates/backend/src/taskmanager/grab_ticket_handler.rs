@@ -173,7 +173,7 @@ async fn timed_grab_ticket_mode(
 
     log::info!("开始抢票！");
     let mut token_retry_count = 0;
-    const MAX_TOKEN_RETRY: i8 = 5;
+    let max_token_retry = custon_config.max_token_retry as i8;
 
     //抢票主循环
     loop {
@@ -191,7 +191,7 @@ async fn timed_grab_ticket_mode(
             Ok((token, ptoken)) => {
                 log::info!("获取抢票token成功！:{} ptoken:{}", token, ptoken);
                 let mut confirm_retry_count = 0;
-                const MAX_CONFIRM_RETRY: i8 = 4;
+                let max_confirm_retry = custon_config.max_confirm_retry as i8;
 
                 loop {
                     let (success, _) = handle_grab_ticket(
@@ -214,7 +214,7 @@ async fn timed_grab_ticket_mode(
                     }
 
                     confirm_retry_count += 1;
-                    if confirm_retry_count >= MAX_CONFIRM_RETRY {
+                    if confirm_retry_count >= max_confirm_retry {
                         log::error!("确认订单失败，已达最大重试次数");
                         let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                             task_id: task_id.clone(),
@@ -247,7 +247,7 @@ async fn timed_grab_ticket_mode(
                         Err(e) => {
                             log::error!("验证码处理失败: {}", e);
                             token_retry_count += 1;
-                            if token_retry_count >= MAX_TOKEN_RETRY {
+                            if token_retry_count >= max_token_retry {
                                 let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                                     task_id: task_id.clone(),
                                     uid,
@@ -276,7 +276,7 @@ async fn timed_grab_ticket_mode(
                         }
                     }
                     token_retry_count += 1;
-                    if token_retry_count >= MAX_TOKEN_RETRY {
+                    if token_retry_count >= max_token_retry {
                         let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                             task_id: task_id.clone(),
                             uid,
@@ -318,7 +318,7 @@ async fn direct_grab_ticket_mode(
 ) {
     log::debug!("直接抢票模式");
     let mut token_retry_count = 0;
-    const MAX_TOKEN_RETRY: i8 = 10;
+    let max_token_retry = custon_config.max_token_retry as i8;
 
     //抢票主循环
     loop {
@@ -336,7 +336,7 @@ async fn direct_grab_ticket_mode(
             Ok((token, ptoken)) => {
                 log::info!("获取抢票token成功！:{} ptoken:{}", token, ptoken);
                 let mut confirm_retry_count = 0;
-                const MAX_CONFIRM_RETRY: i8 = 4;
+                let max_confirm_retry = custon_config.max_confirm_retry as i8;
 
                 loop {
                     let (success, _) = handle_grab_ticket(
@@ -359,7 +359,7 @@ async fn direct_grab_ticket_mode(
                     }
 
                     confirm_retry_count += 1;
-                    if confirm_retry_count >= MAX_CONFIRM_RETRY {
+                    if confirm_retry_count >= max_confirm_retry {
                         log::error!("确认订单失败，已达最大重试次数");
                         let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                             task_id: task_id.clone(),
@@ -392,7 +392,7 @@ async fn direct_grab_ticket_mode(
                         Err(e) => {
                             log::error!("验证码处理失败: {}", e);
                             token_retry_count += 1;
-                            if token_retry_count >= MAX_TOKEN_RETRY {
+                            if token_retry_count >= max_token_retry {
                                 let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                                     task_id: task_id.clone(),
                                     uid,
@@ -417,7 +417,7 @@ async fn direct_grab_ticket_mode(
                         _ => log::error!("抢票失败，未知错误，请重新提交任务"),
                     }
                     token_retry_count += 1;
-                    if token_retry_count >= MAX_TOKEN_RETRY {
+                    if token_retry_count >= max_token_retry {
                         let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                             task_id: task_id.clone(),
                             uid,
@@ -461,7 +461,7 @@ async fn leak_grab_ticket_mode(
 ) {
     log::debug!("捡漏模式");
     let mut token_retry_count = 0;
-    const MAX_TOKEN_RETRY: i8 = 5;
+    let max_token_retry = custon_config.max_token_retry as i8;
 
     'main_loop: loop {
         let project_data =
@@ -536,7 +536,7 @@ async fn leak_grab_ticket_mode(
                     Ok((token, ptoken)) => {
                         log::info!("获取抢票token成功！:{} ptoken:{}", token, ptoken);
                         let mut confirm_retry_count = 0;
-                        const MAX_CONFIRM_RETRY: i8 = 4;
+                        let max_confirm_retry = custon_config.max_confirm_retry as i8;
 
                         loop {
                             let (success, retry_limit) = handle_grab_ticket(
@@ -563,7 +563,7 @@ async fn leak_grab_ticket_mode(
                             }
 
                             confirm_retry_count += 1;
-                            if confirm_retry_count >= MAX_CONFIRM_RETRY {
+                            if confirm_retry_count >= max_confirm_retry {
                                 log::error!("确认订单失败，已达最大重试次数，尝试其他票种");
                                 break;
                             }
@@ -587,7 +587,7 @@ async fn leak_grab_ticket_mode(
                                 Err(e) => {
                                     log::error!("验证码处理失败: {}", e);
                                     token_retry_count += 1;
-                                    if token_retry_count >= MAX_TOKEN_RETRY {
+                                    if token_retry_count >= max_token_retry {
                                         let task_result =
                                             TaskResult::GrabTicketResult(GrabTicketResult {
                                                 task_id: task_id.clone(),
@@ -614,7 +614,7 @@ async fn leak_grab_ticket_mode(
                                 _ => log::error!("抢票失败，未知错误"),
                             }
                             token_retry_count += 1;
-                            if token_retry_count >= MAX_TOKEN_RETRY {
+                            if token_retry_count >= max_token_retry {
                                 let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                                     task_id: task_id.clone(),
                                     uid,
@@ -753,11 +753,12 @@ async fn try_create_order(
                     .unwrap_or("");
 
                 log::info!("下单成功！正在检测是否假票！");
-                
+
                 // 假票检测重试循环
                 let mut fake_check_retry = 0;
-                const MAX_FAKE_CHECK_RETRY: i32 = 10;
-                
+                let max_fake_check_retry =
+                    grab_ticket_req.biliticket.config.max_fake_check_retry as i32;
+
                 loop {
                     let check_result = match check_fake_ticket(
                         cookie_manager.clone(),
@@ -771,14 +772,15 @@ async fn try_create_order(
                         Err(e) => {
                             log::error!("检测假票失败，原因：{}", e);
                             fake_check_retry += 1;
-                            if fake_check_retry >= MAX_FAKE_CHECK_RETRY {
+                            if fake_check_retry >= max_fake_check_retry {
                                 log::error!("检测假票多次失败，默认下单成功，请前往订单中心支付");
                                 // 即使检测失败，也视为抢票成功，只是没有支付二维码
                                 let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                                     task_id: task_id.to_string(),
                                     uid,
                                     success: true,
-                                    message: "抢票成功，但获取支付信息失败，请前往B站订单中心支付".to_string(),
+                                    message: "抢票成功，但获取支付信息失败，请前往B站订单中心支付"
+                                        .to_string(),
                                     order_id: Some(order_id.to_string()),
                                     pay_token: Some(pay_token.to_string()),
                                     confirm_result: Some(confirm_result.clone()),
@@ -797,25 +799,28 @@ async fn try_create_order(
                         .unwrap_or(&zero_json)
                         .as_i64()
                         .unwrap_or(0);
-                        
+
                     if errno != 0 {
                         log::error!("检测到假票(errno={})，放弃当前订单，继续抢票", errno);
                         // 假票，跳出内层循环，继续外层 create_order 循环
-                        break; 
+                        break;
                     }
-                    
-                    let analyze_result = match serde_json::from_value::<CheckFakeResult>(check_result.clone()) {
+
+                    let analyze_result = match serde_json::from_value::<CheckFakeResult>(
+                        check_result.clone(),
+                    ) {
                         Ok(result) => result,
                         Err(e) => {
                             log::error!("解析假票结果失败，原因：{}", e);
                             fake_check_retry += 1;
-                            if fake_check_retry >= MAX_FAKE_CHECK_RETRY {
+                            if fake_check_retry >= max_fake_check_retry {
                                 log::error!("解析支付信息多次失败，默认下单成功");
                                 let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                                     task_id: task_id.to_string(),
                                     uid,
                                     success: true,
-                                    message: "抢票成功，但解析支付信息失败，请前往B站订单中心支付".to_string(),
+                                    message: "抢票成功，但解析支付信息失败，请前往B站订单中心支付"
+                                        .to_string(),
                                     order_id: Some(order_id.to_string()),
                                     pay_token: Some(pay_token.to_string()),
                                     confirm_result: Some(confirm_result.clone()),
@@ -844,7 +849,7 @@ async fn try_create_order(
                     let _ = result_tx.send(task_result.clone()).await;
                     return Some((true, false)); // 成功，不需要继续重试
                 }
-                
+
                 // 如果是从 break 跳出（假票），则继续外层循环（create_order）
                 // 这里不需要显式 continue，因为 break 后会执行到下面的 order_retry_count += 1
             }
@@ -929,12 +934,17 @@ async fn try_create_order(
         }
 
         order_retry_count += 1;
-        if grab_ticket_req.grab_mode == 2 && order_retry_count >= 30 {
+        if grab_ticket_req.grab_mode == 2
+            && order_retry_count >= grab_ticket_req.biliticket.config.max_order_retry as i32
+        {
             log::error!(
                 "捡漏模式下单失败，已达最大重试次数，放弃该票种抢票，准备检测其他票种继续捡漏"
             );
             return Some((false, true));
         }
-        tokio::time::sleep(tokio::time::Duration::from_secs_f32(0.4)).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(
+            grab_ticket_req.biliticket.config.retry_interval_ms,
+        ))
+        .await;
     }
 }

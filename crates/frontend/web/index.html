@@ -229,7 +229,7 @@
                             <select class="select-input" id="grab-mode">
                                 <option value="0">普通模式</option>
                                 <option value="1">快速模式</option>
-                                <option value="2">极速模式</option>
+                                <option value="2">捡漏模式</option>
                             </select>
                         </div>
                         <div class="settings-item">
@@ -263,6 +263,41 @@
                                 min="1"
                                 max="1000"
                             />
+                        </div>
+                        <div class="settings-item">
+                            <div>
+                                <div class="settings-label">Token重试次数</div>
+                                <div class="settings-description">获取抢票Token失败时的最大重试次数</div>
+                            </div>
+                            <input type="number" class="number-input" id="max-token-retry" value="5" min="1" max="100">
+                        </div>
+                        <div class="settings-item">
+                            <div>
+                                <div class="settings-label">订单确认重试次数</div>
+                                <div class="settings-description">确认订单失败时的最大重试次数</div>
+                            </div>
+                            <input type="number" class="number-input" id="max-confirm-retry" value="4" min="1" max="100">
+                        </div>
+                        <div class="settings-item">
+                            <div>
+                                <div class="settings-label">假票检测重试次数</div>
+                                <div class="settings-description">下单后检测是否为假票的最大重试次数</div>
+                            </div>
+                            <input type="number" class="number-input" id="max-fake-check-retry" value="10" min="1" max="100">
+                        </div>
+                        <div class="settings-item">
+                            <div>
+                                <div class="settings-label">下单重试次数</div>
+                                <div class="settings-description">创建订单失败时的最大重试次数</div>
+                            </div>
+                            <input type="number" class="number-input" id="max-order-retry" value="30" min="1" max="1000">
+                        </div>
+                        <div class="settings-item">
+                            <div>
+                                <div class="settings-label">重试间隔(毫秒)</div>
+                                <div class="settings-description">每次重试之间的等待时间</div>
+                            </div>
+                            <input type="number" class="number-input" id="retry-interval-ms" value="400" min="10" max="5000" style="width: 120px;">
                         </div>
                         <div class="settings-item" id="skip-words-settings" style="display: none;">
                             <div>
@@ -676,7 +711,6 @@
                     </div>
                 </div>
 
-                <!-- SMS Login Content -->
                 <div id="method-sms" class="login-method-content">
                     <div class="form-group">
                         <label class="form-label" for="phone-login-phone">手机号</label>
@@ -699,7 +733,6 @@
                     </div>
                 </div>
 
-                <!-- Password Login Content -->
                 <div id="method-password" class="login-method-content">
                     <div class="form-group">
                         <label class="form-label" for="password-login-username">账号</label>
@@ -715,7 +748,6 @@
                     </div>
                 </div>
 
-                <!-- Cookie Login Content -->
                 <div id="method-cookie" class="login-method-content">
                     <div class="form-group">
                         <label class="form-label">SESSDATA / Cookie</label>

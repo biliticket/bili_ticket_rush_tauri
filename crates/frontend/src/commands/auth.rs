@@ -12,7 +12,7 @@ pub fn qrcode_login(state: State<'_, AppState>) -> Result<serde_json::Value, Str
         .auth
         .lock()
         .map_err(|_| "auth lock failed".to_string())?;
-    
+
     let mut runtime = state
         .runtime
         .lock()
@@ -248,10 +248,7 @@ pub fn set_login_method(state: State<'_, AppState>, method: String) -> Result<()
 
 #[tauri::command]
 pub fn set_show_login_window(state: State<'_, AppState>, show: bool) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.show_login_window = show;
     Ok(())
 }

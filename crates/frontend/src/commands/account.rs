@@ -37,7 +37,7 @@ pub fn add_account_by_cookie(
         .config
         .lock()
         .map_err(|_| "config lock failed".to_string())?;
-        
+
     let account = add_account(&cookie, &auth.client, &auth.default_ua)?;
     config.config.add_account(account.clone());
     config
@@ -82,20 +82,14 @@ pub fn set_account_active(
 
 #[tauri::command]
 pub fn set_selected_account(state: State<'_, AppState>, uid: Option<i64>) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.selected_account_uid = uid;
     Ok(())
 }
 
 #[tauri::command]
 pub fn set_delete_account(state: State<'_, AppState>, uid: Option<String>) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.delete_account = uid;
     Ok(())
 }
@@ -106,10 +100,7 @@ pub fn set_account_switch(
     uid: String,
     switch: bool,
 ) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.account_switch = Some(AccountSwitch { uid, switch });
     Ok(())
 }

@@ -25,7 +25,7 @@ pub fn set_grab_mode(state: State<'_, AppState>, mode: u8) -> Result<(), String>
 
     ticket.grab_mode = mode;
     config.config.grab_mode = mode;
-    // We don't save config here immediately? Original code only set `state.grab_mode`. 
+    // We don't save config here immediately? Original code only set `state.grab_mode`.
     // `state.config.grab_mode` was updated in `save_settings`.
     // Wait, original:
     // state.grab_mode = mode;
@@ -33,7 +33,7 @@ pub fn set_grab_mode(state: State<'_, AppState>, mode: u8) -> Result<(), String>
     // So it seems it was only runtime.
     // I'll stick to updating TicketState grab_mode.
     // But I will also update config.config.grab_mode to keep them in sync in memory.
-    
+
     Ok(())
 }
 
@@ -65,10 +65,7 @@ pub fn set_show_add_buyer_window(
     state: State<'_, AppState>,
     uid: Option<String>,
 ) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.show_add_buyer_window = uid;
     Ok(())
 }
@@ -78,19 +75,13 @@ pub fn set_show_orderlist_window(
     state: State<'_, AppState>,
     uid: Option<String>,
 ) -> Result<(), String> {
-    let mut ui = state
-        .ui
-        .lock()
-        .map_err(|_| "ui lock failed".to_string())?;
+    let mut ui = state.ui.lock().map_err(|_| "ui lock failed".to_string())?;
     ui.show_orderlist_window = uid;
     Ok(())
 }
 
 #[tauri::command]
-pub fn set_selected_screen(
-    state: State<'_, AppState>,
-    id: Option<i64>,
-) -> Result<(), String> {
+pub fn set_selected_screen(state: State<'_, AppState>, id: Option<i64>) -> Result<(), String> {
     let mut ticket = state
         .ticket
         .lock()
@@ -143,11 +134,7 @@ pub fn set_no_bind_buyer_info(
         .lock()
         .map_err(|_| "ticket lock failed".to_string())?;
 
-    let no_bind_buyer_info = NoBindBuyerInfo {
-        name,
-        tel,
-        uid: 0, 
-    };
+    let no_bind_buyer_info = NoBindBuyerInfo { name, tel, uid: 0 };
 
     ticket.selected_no_bind_buyer_info = Some(no_bind_buyer_info);
     Ok(())
