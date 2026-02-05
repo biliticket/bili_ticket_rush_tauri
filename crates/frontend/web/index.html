@@ -335,215 +335,129 @@
                             <div>
                                 <div class="settings-label">启用推送渠道</div>
                                 <div class="settings-description">
-                                    选择要启用的推送渠道（至少选择一个）
+                                    选择要启用的推送渠道
                                 </div>
                             </div>
-                            <div
-                                class="push-methods-checkboxes"
-                                style="margin-top: 8px"
-                            >
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: 16px;
-                                    "
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="push-method-bark"
-                                    />
-                                    <span style="margin-left: 4px">Bark</span>
+                            <div class="push-methods-grid">
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-bark" />
+                                    <span>Bark</span>
                                 </label>
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: 16px;
-                                    "
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="push-method-pushplus"
-                                    />
-                                    <span style="margin-left: 4px"
-                                        >PushPlus</span
-                                    >
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-pushplus" />
+                                    <span>PushPlus</span>
                                 </label>
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: 16px;
-                                    "
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="push-method-fangtang"
-                                    />
-                                    <span style="margin-left: 4px"
-                                        >方糖推送</span
-                                    >
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-fangtang" />
+                                    <span>方糖</span>
                                 </label>
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: 16px;
-                                    "
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="push-method-dingtalk"
-                                    />
-                                    <span style="margin-left: 4px">钉钉</span>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-dingtalk" />
+                                    <span>钉钉</span>
                                 </label>
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: 16px;
-                                    "
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="push-method-wechat"
-                                    />
-                                    <span style="margin-left: 4px"
-                                        >企业微信</span
-                                    >
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-wechat" />
+                                    <span>企微</span>
                                 </label>
-                                <label
-                                    style="
-                                        display: inline-flex;
-                                        align-items: center;
-                                        margin-right: 16px;
-                                    "
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="push-method-gotify"
-                                    />
-                                    <span style="margin-left: 4px">Gotify</span>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-gotify" />
+                                    <span>Gotify</span>
+                                </label>
+                                <label class="checkbox-card">
+                                    <input type="checkbox" id="push-method-dungeon" />
+                                    <span>Dungeon</span>
                                 </label>
                             </div>
                         </div>
 
-                        <div class="settings-item" id="bark-settings">
-                            <div>
-                                <div class="settings-label">Bark Token</div>
-                                <div class="settings-description">
-                                    iOS Bark推送服务的Token
+                        <div id="push-settings-containers">
+                            <div class="settings-subgroup channel-settings" id="bark-settings">
+                                <div class="settings-subtitle">Bark 配置</div>
+                                <div class="settings-item-inner">
+                                    <label class="form-label">Bark Token</label>
+                                    <input type="text" class="form-input" id="bark-token" placeholder="输入Bark Token" />
                                 </div>
                             </div>
-                            <input
-                                type="text"
-                                class="form-input"
-                                id="bark-token"
-                                placeholder="输入Bark Token"
-                                style="width: 300px"
-                            />
-                        </div>
 
-                        <div class="settings-item" id="pushplus-settings">
-                            <div>
-                                <div class="settings-label">PushPlus Token</div>
-                                <div class="settings-description">
-                                    PushPlus推送服务的Token
+                            <div class="settings-subgroup channel-settings" id="pushplus-settings">
+                                <div class="settings-subtitle">PushPlus 配置</div>
+                                <div class="settings-item-inner">
+                                    <label class="form-label">PushPlus Token</label>
+                                    <input type="text" class="form-input" id="pushplus-token" placeholder="输入PushPlus Token" />
                                 </div>
                             </div>
-                            <input
-                                type="text"
-                                class="form-input"
-                                id="pushplus-token"
-                                placeholder="输入PushPlus Token"
-                                style="width: 300px"
-                            />
-                        </div>
 
-                        <div class="settings-item" id="fangtang-settings">
-                            <div>
-                                <div class="settings-label">方糖推送Token</div>
-                                <div class="settings-description">
-                                    方糖(Server酱)推送服务的Token
+                            <div class="settings-subgroup channel-settings" id="fangtang-settings">
+                                <div class="settings-subtitle">方糖推送 配置</div>
+                                <div class="settings-item-inner">
+                                    <label class="form-label">方糖推送Token</label>
+                                    <input type="text" class="form-input" id="fangtang-token" placeholder="输入方糖推送Token" />
                                 </div>
                             </div>
-                            <input
-                                type="text"
-                                class="form-input"
-                                id="fangtang-token"
-                                placeholder="输入方糖推送Token"
-                                style="width: 300px"
-                            />
-                        </div>
 
-                        <div class="settings-item" id="dingtalk-settings">
-                            <div>
-                                <div class="settings-label">
-                                    钉钉机器人Token
-                                </div>
-                                <div class="settings-description">
-                                    钉钉群机器人的Access Token
+                            <div class="settings-subgroup channel-settings" id="dingtalk-settings">
+                                <div class="settings-subtitle">钉钉机器人 配置</div>
+                                <div class="settings-item-inner">
+                                    <label class="form-label">钉钉机器人Token</label>
+                                    <input type="text" class="form-input" id="dingtalk-token" placeholder="输入钉钉机器人Token" />
                                 </div>
                             </div>
-                            <input
-                                type="text"
-                                class="form-input"
-                                id="dingtalk-token"
-                                placeholder="输入钉钉机器人Token"
-                                style="width: 300px"
-                            />
-                        </div>
 
-                        <div class="settings-item" id="wechat-settings">
-                            <div>
-                                <div class="settings-label">企业微信Token</div>
-                                <div class="settings-description">
-                                    企业微信机器人的Webhook Key
+                            <div class="settings-subgroup channel-settings" id="wechat-settings">
+                                <div class="settings-subtitle">企业微信 配置</div>
+                                <div class="settings-item-inner">
+                                    <label class="form-label">企业微信Token</label>
+                                    <input type="text" class="form-input" id="wechat-token" placeholder="输入企业微信Token" />
                                 </div>
                             </div>
-                            <input
-                                type="text"
-                                class="form-input"
-                                id="wechat-token"
-                                placeholder="输入企业微信Token"
-                                style="width: 300px"
-                            />
-                        </div>
 
-                        <div class="settings-subgroup" id="gotify-settings">
-                            <div class="settings-subtitle">Gotify设置</div>
-                            <div class="settings-item">
-                                <div>
-                                    <div class="settings-label">Gotify URL</div>
-                                    <div class="settings-description">
-                                        Gotify服务器地址
+                            <div class="settings-subgroup channel-settings" id="gotify-settings">
+                                <div class="settings-subtitle">Gotify 配置</div>
+                                <div class="settings-item-inner">
+                                    <label class="form-label">Gotify URL</label>
+                                    <input type="text" class="form-input" id="gotify-url" placeholder="http://your-gotify-server.com" />
+                                </div>
+                                <div class="settings-item-inner mt-8">
+                                    <label class="form-label">Gotify Token</label>
+                                    <input type="text" class="form-input" id="gotify-token" placeholder="输入Gotify Token" />
+                                </div>
+                            </div>
+
+                            <div class="settings-subgroup channel-settings" id="dungeon-settings">
+                                <div class="settings-subtitle">Dungeon (Coyote 3) 配置</div>
+                                <div class="settings-grid">
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">设备标识</label>
+                                        <input type="text" class="form-input" id="dungeon-device-id" placeholder="Coyote / MAC">
+                                    </div>
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">通道</label>
+                                        <select class="select-input w-full" id="dungeon-channel">
+                                            <option value="0">通道 A</option>
+                                            <option value="1">通道 B</option>
+                                        </select>
+                                    </div>
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">强度 (0-100)</label>
+                                        <input type="number" class="form-input" id="dungeon-intensity" value="10">
+                                    </div>
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">频率 (Hz)</label>
+                                        <input type="number" class="form-input" id="dungeon-frequency" value="100">
+                                    </div>
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">脉冲时长 (ms)</label>
+                                        <input type="number" class="form-input" id="dungeon-pulse-ms" value="100">
+                                    </div>
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">间隔时长 (ms)</label>
+                                        <input type="number" class="form-input" id="dungeon-pause-ms" value="100">
+                                    </div>
+                                    <div class="settings-item-inner">
+                                        <label class="form-label">循环次数</label>
+                                        <input type="number" class="form-input" id="dungeon-count" value="3">
                                     </div>
                                 </div>
-                                <input
-                                    type="text"
-                                    class="form-input"
-                                    id="gotify-url"
-                                    placeholder="http://your-gotify-server.com"
-                                    style="width: 300px"
-                                />
-                            </div>
-                            <div class="settings-item">
-                                <div>
-                                    <div class="settings-label">
-                                        Gotify Token
-                                    </div>
-                                    <div class="settings-description">
-                                        Gotify应用的Token
-                                    </div>
-                                </div>
-                                <input
-                                    type="text"
-                                    class="form-input"
-                                    id="gotify-token"
-                                    placeholder="输入Gotify Token"
-                                    style="width: 300px"
-                                />
                             </div>
                         </div>
                     </div>
@@ -693,7 +607,6 @@
                     <div class="login-tab" data-method="cookie">Cookie</div>
                 </div>
 
-                <!-- QR Code Login Content -->
                 <div id="method-qrcode" class="login-method-content active">
                     <div class="qrcode-container" style="margin: 10px 0; position: relative; cursor: pointer;" onclick="handleQrcodeClick()">
                         <img id="qrcode-img" class="qrcode-img" src="" alt="登录二维码" style="width: 180px; height: 180px;" />

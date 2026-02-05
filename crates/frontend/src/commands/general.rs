@@ -222,7 +222,9 @@ pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
             "cookie": auth.login_input.cookie,
             "sms_code": auth.login_input.sms_code
         },
-        "custom_config": config.custom_config
+        "custom_config": config.custom_config,
+        "push_config": config.push_config,
+        "config": config.config
     }))
 }
 
@@ -342,6 +344,13 @@ pub fn save_settings(
     max_fake_check_retry: u32,
     max_order_retry: u32,
     retry_interval_ms: u64,
+    dungeon_device_id: String,
+    dungeon_channel: u8,
+    dungeon_intensity: u8,
+    dungeon_frequency: u8,
+    dungeon_pulse_ms: u64,
+    dungeon_pause_ms: u64,
+    dungeon_count: u8,
 ) -> Result<(), String> {
     let mut config = state
         .config
@@ -376,6 +385,16 @@ pub fn save_settings(
     config.push_config.wechat_token = wechat_token;
     config.push_config.gotify_config.gotify_url = gotify_url;
     config.push_config.gotify_config.gotify_token = gotify_token;
+    
+    config.push_config.dungeon_config.device_id = dungeon_device_id;
+    config.push_config.dungeon_config.channel = dungeon_channel;
+    config.push_config.dungeon_config.intensity = dungeon_intensity;
+    config.push_config.dungeon_config.frequency = dungeon_frequency;
+    config.push_config.dungeon_config.pulse_ms = dungeon_pulse_ms;
+    config.push_config.dungeon_config.pause_ms = dungeon_pause_ms;
+    config.push_config.dungeon_config.count = dungeon_count;
+    config.push_config.dungeon_config.enabled = config.push_config.enabled_methods.contains(&"dungeon".to_string());
+
     config.skip_words = skip_words.clone();
 
     config.config.grab_mode = grab_mode;

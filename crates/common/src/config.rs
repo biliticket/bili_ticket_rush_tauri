@@ -136,6 +136,8 @@ pub struct PushConfig {
     pub wechat_token: String,
     #[serde(default)]
     pub gotify_config: GotifyConfig,
+    #[serde(default)]
+    pub dungeon_config: DungeonConfig,
 }
 
 impl Default for PushConfig {
@@ -149,6 +151,34 @@ impl Default for PushConfig {
             dingtalk_token: String::new(),
             wechat_token: String::new(),
             gotify_config: GotifyConfig::default(),
+            dungeon_config: DungeonConfig::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DungeonConfig {
+    pub enabled: bool,
+    pub device_id: String,
+    pub channel: u8,
+    pub intensity: u8,
+    pub frequency: u8,
+    pub pulse_ms: u64,
+    pub pause_ms: u64,
+    pub count: u8,
+}
+
+impl Default for DungeonConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            device_id: String::new(),
+            channel: 0,
+            intensity: 10,
+            frequency: 100,
+            pulse_ms: 100,
+            pause_ms: 100,
+            count: 3,
         }
     }
 }

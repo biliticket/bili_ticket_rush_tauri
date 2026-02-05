@@ -909,6 +909,72 @@ input:checked + .toggle-slider:before {
     display: block;
 }
 
+.push-methods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+    width: 100%;
+}
+
+.checkbox-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+    user-select: none;
+}
+
+.checkbox-card:hover {
+    border-color: var(--accent-color);
+    background: rgba(9, 105, 218, 0.05);
+}
+
+.checkbox-card input[type="checkbox"] {
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color);
+}
+
+.checkbox-card:has(input:checked) {
+    border-color: var(--accent-color);
+    background: rgba(9, 105, 218, 0.1);
+    font-weight: 500;
+    color: var(--accent-color);
+}
+
+.settings-subgroup.channel-settings {
+    margin-top: 12px;
+    border-left: 4px solid var(--accent-color);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.settings-item-inner {
+    padding: 4px 0;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.w-full {
+    width: 100% !important;
+}
+
 #password-login-error {
     margin-top: 10px;
     font-size: 13px;
@@ -919,6 +985,7 @@ input:checked + .toggle-slider:before {
 #fangtang-settings,
 #dingtalk-settings,
 #wechat-settings,
-#gotify-settings {
+#gotify-settings,
+#dungeon-settings {
     display: none;
 }

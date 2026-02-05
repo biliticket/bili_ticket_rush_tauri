@@ -175,6 +175,7 @@ pub enum PushType {
     Dingtalk,
     WeChat,
     Smtp,
+    Dungeon,
 }
 
 // 推送结果结构体

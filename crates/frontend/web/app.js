@@ -420,6 +420,11 @@ function initializeEventListeners() {
 
   document.getElementById("grab-mode")?.addEventListener("change", updateSkipWordsVisibility);
   document.getElementById("enable-push")?.addEventListener("change", updatePushSettingsVisibility);
+  
+  // Add listeners for channel checkboxes
+  ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify", "dungeon"].forEach(m => {
+    document.getElementById(`push-method-${m}`)?.addEventListener("change", updatePushSettingsVisibility);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -1056,13 +1061,14 @@ async function loadSettings() {
     document.getElementById("max-attempts").value = state.config?.max_attempts || "100";
     document.getElementById("skip-words-input").value = state.skip_words ? state.skip_words.join(", ") : "";
     
-    // Load retry config
     if (state.custom_config) {
         document.getElementById("max-token-retry").value = state.custom_config.max_token_retry || "5";
         document.getElementById("max-confirm-retry").value = state.custom_config.max_confirm_retry || "4";
         document.getElementById("max-fake-check-retry").value = state.custom_config.max_fake_check_retry || "10";
         document.getElementById("max-order-retry").value = state.custom_config.max_order_retry || "30";
         document.getElementById("retry-interval-ms").value = state.custom_config.retry_interval_ms || "400";
+        document.getElementById("custom-ua").checked = state.custom_config.open_custom_ua || false;
+        document.getElementById("user-agent").value = state.custom_config.custom_ua || "";
     }
 
     if (state.push_config) {
@@ -1072,8 +1078,20 @@ async function loadSettings() {
       document.getElementById("fangtang-token").value = state.push_config.fangtang_token || "";
       document.getElementById("dingtalk-token").value = state.push_config.dingtalk_token || "";
       document.getElementById("wechat-token").value = state.push_config.wechat_token || "";
+      
+      if (state.push_config.dungeon_config) {
+          const dc = state.push_config.dungeon_config;
+          document.getElementById("dungeon-device-id").value = dc.device_id || "";
+          document.getElementById("dungeon-channel").value = dc.channel || "0";
+          document.getElementById("dungeon-intensity").value = dc.intensity || "10";
+          document.getElementById("dungeon-frequency").value = dc.frequency || "100";
+          document.getElementById("dungeon-pulse-ms").value = dc.pulse_ms || "100";
+          document.getElementById("dungeon-pause-ms").value = dc.pause_ms || "100";
+          document.getElementById("dungeon-count").value = dc.count || "3";
+      }
+
       if (state.push_config.enabled_methods) {
-        ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"].forEach(m => {
+        ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify", "dungeon"].forEach(m => {
           const el = document.getElementById(`push-method-${m}`);
           if (el) el.checked = state.push_config.enabled_methods.includes(m);
         });
@@ -1090,17 +1108,26 @@ async function loadSettings() {
 
 function updatePushSettingsVisibility() {
   const pushEnabled = document.getElementById("enable-push").checked;
-  const methods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"];
+  const methods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify", "dungeon"];
+  
   methods.forEach(m => {
-    const el = document.getElementById(`${m}-settings`);
-    if (el) el.style.display = pushEnabled ? "block" : "none";
+    const channelCheckbox = document.getElementById(`push-method-${m}`);
+    const settingsPanel = document.getElementById(`${m}-settings`);
+    
+    if (settingsPanel) {
+        if (pushEnabled && channelCheckbox && channelCheckbox.checked) {
+            settingsPanel.style.display = "block";
+        } else {
+            settingsPanel.style.display = "none";
+        }
+    }
   });
 }
 
 function updateSkipWordsVisibility() {
   const mode = document.getElementById("grab-mode").value;
   const container = document.getElementById("skip-words-settings");
-  if (container) container.style.display = (mode === "3") ? "block" : "none";
+  if (container) container.style.display = (mode === "2") ? "block" : "none";
 }
 
 async function saveSettings() {
@@ -1112,14 +1139,24 @@ async function saveSettings() {
     const enablePush = document.getElementById("enable-push").checked;
     const skipWords = document.getElementById("skip-words-input").value.split(",").map(s => s.trim()).filter(s => s.length > 0);
     
-    // Read retry config
     const maxTokenRetry = parseInt(document.getElementById("max-token-retry").value) || 5;
     const maxConfirmRetry = parseInt(document.getElementById("max-confirm-retry").value) || 4;
     const maxFakeCheckRetry = parseInt(document.getElementById("max-fake-check-retry").value) || 10;
     const maxOrderRetry = parseInt(document.getElementById("max-order-retry").value) || 30;
     const retryIntervalMs = parseInt(document.getElementById("retry-interval-ms").value) || 400;
 
-    const enabledMethods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify"].filter(m => document.getElementById(`push-method-${m}`)?.checked);
+    const customUa = document.getElementById("custom-ua").checked;
+    const userAgent = document.getElementById("user-agent").value;
+
+    const dungeonDeviceId = document.getElementById("dungeon-device-id").value;
+    const dungeonChannel = parseInt(document.getElementById("dungeon-channel").value);
+    const dungeonIntensity = parseInt(document.getElementById("dungeon-intensity").value);
+    const dungeonFrequency = parseInt(document.getElementById("dungeon-frequency").value);
+    const dungeonPulseMs = parseInt(document.getElementById("dungeon-pulse-ms").value);
+    const dungeonPauseMs = parseInt(document.getElementById("dungeon-pause-ms").value);
+    const dungeonCount = parseInt(document.getElementById("dungeon-count").value);
+
+    const enabledMethods = ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify", "dungeon"].filter(m => document.getElementById(`push-method-${m}`)?.checked);
 
     await invoke("save_settings", {
       grabMode, delayTime, maxAttempts, enablePush, enabledMethods,
@@ -1130,8 +1167,9 @@ async function saveSettings() {
       wechatToken: document.getElementById("wechat-token").value,
       gotifyUrl: document.getElementById("gotify-url").value,
       gotifyToken: document.getElementById("gotify-token").value,
-      customUa: false, userAgent: "", skipWords: skipWords.length > 0 ? skipWords : null,
-      maxTokenRetry, maxConfirmRetry, maxFakeCheckRetry, maxOrderRetry, retryIntervalMs
+      customUa, userAgent, skipWords: skipWords.length > 0 ? skipWords : null,
+      maxTokenRetry, maxConfirmRetry, maxFakeCheckRetry, maxOrderRetry, retryIntervalMs,
+      dungeonDeviceId, dungeonChannel, dungeonIntensity, dungeonFrequency, dungeonPulseMs, dungeonPauseMs, dungeonCount
     });
     showSuccess("保存成功");
     await loadSettings();
@@ -1293,7 +1331,6 @@ async function loadInitialLogs() {
     if (logs && logs.length > 0) { 
         allLogs = logs;
         logSet = new Set(allLogs);
-        // 重新初始化统计计数器
         logStatsCounter = { info: 0, debug: 0, warn: 0, error: 0 };
         allLogs.forEach(log => {
             const level = getLogLevel(log);
