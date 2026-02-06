@@ -138,8 +138,6 @@ function handleGrabTicketResult(data) {
         } catch (e) {
             console.error("显示成功弹窗失败:", e);
             showError("抢票成功，但显示详情失败: " + e.message);
-        } finally {
-            stopGrab();
         }
     } else if (data.message && data.message.includes("待付款订单")) {
         showError(data.message);
@@ -1080,7 +1078,6 @@ async function loadSettings() {
       
       if (state.push_config.dungeon_config) {
           const dc = state.push_config.dungeon_config;
-          document.getElementById("dungeon-device-id").value = dc.device_id || "";
           document.getElementById("dungeon-channel").value = dc.channel || "0";
           document.getElementById("dungeon-intensity").value = dc.intensity || "10";
           document.getElementById("dungeon-frequency").value = dc.frequency || "100";
@@ -1147,7 +1144,6 @@ async function saveSettings() {
     const customUa = document.getElementById("custom-ua").checked;
     const userAgent = document.getElementById("user-agent").value;
 
-    const dungeonDeviceId = document.getElementById("dungeon-device-id").value;
     const dungeonChannel = parseInt(document.getElementById("dungeon-channel").value);
     const dungeonIntensity = parseInt(document.getElementById("dungeon-intensity").value);
     const dungeonFrequency = parseInt(document.getElementById("dungeon-frequency").value);
@@ -1168,7 +1164,7 @@ async function saveSettings() {
       gotifyToken: document.getElementById("gotify-token").value,
       customUa, userAgent, skipWords: skipWords.length > 0 ? skipWords : null,
       maxTokenRetry, maxConfirmRetry, maxFakeCheckRetry, maxOrderRetry, retryIntervalMs,
-      dungeonDeviceId, dungeonChannel, dungeonIntensity, dungeonFrequency, dungeonPulseMs, dungeonPauseMs, dungeonCount
+      dungeonChannel, dungeonIntensity, dungeonFrequency, dungeonPulseMs, dungeonPauseMs, dungeonCount
     });
     showSuccess("保存成功");
     await loadSettings();
@@ -1206,7 +1202,6 @@ function resetSettings() {
         if(el) el.checked = false;
     });
 
-    document.getElementById("dungeon-device-id").value = "";
     document.getElementById("dungeon-channel").value = "0";
     document.getElementById("dungeon-intensity").value = "10";
     document.getElementById("dungeon-frequency").value = "100";

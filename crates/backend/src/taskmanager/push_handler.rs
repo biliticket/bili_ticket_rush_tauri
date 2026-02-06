@@ -17,7 +17,6 @@ pub async fn handle_push_request(push_req: PushRequest, result_tx: mpsc::Sender<
                 .push_all_async(&title, &message, &jump_url)
                 .await
         }
-        PushType::Dungeon => push_config.push_dungeon().await,
         _ => (false, "未实现的推送类型".to_string()),
     };
 

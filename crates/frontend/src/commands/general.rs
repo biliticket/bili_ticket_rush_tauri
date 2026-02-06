@@ -344,7 +344,6 @@ pub fn save_settings(
     max_fake_check_retry: u32,
     max_order_retry: u32,
     retry_interval_ms: u64,
-    dungeon_device_id: String,
     dungeon_channel: u8,
     dungeon_intensity: u8,
     dungeon_frequency: u8,
@@ -386,7 +385,6 @@ pub fn save_settings(
     config.push_config.gotify_config.gotify_url = gotify_url;
     config.push_config.gotify_config.gotify_token = gotify_token;
 
-    config.push_config.dungeon_config.device_id = dungeon_device_id;
     config.push_config.dungeon_config.channel = dungeon_channel;
     config.push_config.dungeon_config.intensity = dungeon_intensity;
     config.push_config.dungeon_config.frequency = dungeon_frequency;

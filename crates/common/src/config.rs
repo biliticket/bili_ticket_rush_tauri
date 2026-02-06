@@ -159,7 +159,6 @@ impl Default for PushConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DungeonConfig {
     pub enabled: bool,
-    pub device_id: String,
     pub channel: u8,
     pub intensity: u8,
     pub frequency: u8,
@@ -172,7 +171,6 @@ impl Default for DungeonConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            device_id: String::new(),
             channel: 0,
             intensity: 10,
             frequency: 100,

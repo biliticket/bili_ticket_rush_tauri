@@ -846,6 +846,7 @@ async fn try_create_order(
                                 let project_name = &confirm_result.project_name;
                                 let screen_name = &confirm_result.screen_name;
                                 let ticket_name = &confirm_result.ticket_info.name;
+                                let jump_url = Some(format!("bilibili://mall/web?url=https://mall.bilibili.com/neul-next/ticket/orderDetail.html?order_id={}", order_id.to_string()));
                                 let title = format!("抢票成功: {}", project_name);
                                 let message = format!(
                                     "项目: {}\n场次: {}\n票种: {}\n订单号: {}\n状态: 解析支付信息失败，请前往订单中心支付",
@@ -854,7 +855,7 @@ async fn try_create_order(
                                 grab_ticket_req
                                     .biliticket
                                     .push_self
-                                    .push_all_async(&title, &message, &None)
+                                    .push_all_async(&title, &message, &jump_url)
                                     .await;
 
                                 return Some((true, false));
@@ -881,16 +882,19 @@ async fn try_create_order(
                     let project_name = &confirm_result.project_name;
                     let screen_name = &confirm_result.screen_name;
                     let ticket_name = &confirm_result.ticket_info.name;
+                    let jump_url = Some(format!("bilibili://mall/web?url=https://mall.bilibili.com/neul-next/ticket/orderDetail.html?order_id={}", order_id.to_string()));
                     let title = format!("抢票成功: {}", project_name);
                     let message = format!(
                         "项目: {}\n场次: {}\n票种: {}\n订单号: {}\n请尽快支付！",
                         project_name, screen_name, ticket_name, order_id
                     );
-                    grab_ticket_req
+                    log::info!("准备发送推送通知... 启用渠道: {:?}", grab_ticket_req.biliticket.push_self.enabled_methods);
+                    let (push_success, push_msg) = grab_ticket_req
                         .biliticket
                         .push_self
-                        .push_all_async(&title, &message, &None)
+                        .push_all_async(&title, &message, &jump_url)
                         .await;
+                    log::info!("推送结果: 成功={}, 信息={}", push_success, push_msg);
 
                     return Some((true, false)); // 成功，不需要继续重试
                 }
@@ -938,7 +942,7 @@ async fn try_create_order(
                         log::error!("没有配置购票人信息！请重新配置");
                         return Some((true, false));
                     }
-                    100079 | 100003 => {
+                    100079 | 100003 | 100048 => {
                         log::error!("购票人存在待付款订单，请前往支付或取消后重新下单");
                         let task_result = TaskResult::GrabTicketResult(GrabTicketResult {
                             task_id: task_id.to_string(),
