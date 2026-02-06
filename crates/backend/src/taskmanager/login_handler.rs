@@ -1,9 +1,8 @@
 use crate::api::poll_qrcode_login;
 use common::login::{QrCodeLoginStatus, send_loginsms, sms_login};
 use common::taskmanager::{
-    LoginSmsRequest, LoginSmsRequestResult,
-    QrCodeLoginRequest, SubmitLoginSmsRequest, SubmitSmsLoginResult, TaskQrCodeLoginResult,
-    TaskResult,
+    LoginSmsRequest, LoginSmsRequestResult, QrCodeLoginRequest, SubmitLoginSmsRequest,
+    SubmitSmsLoginResult, TaskQrCodeLoginResult, TaskResult,
 };
 use tokio::sync::mpsc;
 
@@ -127,5 +126,3 @@ pub async fn handle_submit_login_sms_request(
         log::error!("Send submit sms login result failed: {}", e);
     }
 }
-
-

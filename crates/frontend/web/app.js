@@ -421,7 +421,6 @@ function initializeEventListeners() {
   document.getElementById("grab-mode")?.addEventListener("change", updateSkipWordsVisibility);
   document.getElementById("enable-push")?.addEventListener("change", updatePushSettingsVisibility);
   
-  // Add listeners for channel checkboxes
   ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify", "dungeon"].forEach(m => {
     document.getElementById(`push-method-${m}`)?.addEventListener("change", updatePushSettingsVisibility);
   });
@@ -1174,6 +1173,63 @@ async function saveSettings() {
     showSuccess("保存成功");
     await loadSettings();
   } catch (error) { showError("保存失败: " + error); }
+}
+
+function resetSettings() {
+    if(!confirm("确定要恢复默认设置吗？")) return;
+
+    document.getElementById("grab-mode").value = "0";
+    document.getElementById("delay-time").value = "2";
+    document.getElementById("max-attempts").value = "100";
+    document.getElementById("enable-push").checked = false;
+    document.getElementById("skip-words-input").value = "";
+
+    document.getElementById("max-token-retry").value = "5";
+    document.getElementById("max-confirm-retry").value = "4";
+    document.getElementById("max-fake-check-retry").value = "10";
+    document.getElementById("max-order-retry").value = "30";
+    document.getElementById("retry-interval-ms").value = "400";
+
+    document.getElementById("custom-ua").checked = true;
+    document.getElementById("user-agent").value = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Mobile Safari/537.36";
+
+    document.getElementById("bark-token").value = "";
+    document.getElementById("pushplus-token").value = "";
+    document.getElementById("fangtang-token").value = "";
+    document.getElementById("dingtalk-token").value = "";
+    document.getElementById("wechat-token").value = "";
+    document.getElementById("gotify-url").value = "";
+    document.getElementById("gotify-token").value = "";
+
+    ["bark", "pushplus", "fangtang", "dingtalk", "wechat", "gotify", "dungeon"].forEach(m => {
+        const el = document.getElementById(`push-method-${m}`);
+        if(el) el.checked = false;
+    });
+
+    document.getElementById("dungeon-device-id").value = "";
+    document.getElementById("dungeon-channel").value = "0";
+    document.getElementById("dungeon-intensity").value = "10";
+    document.getElementById("dungeon-frequency").value = "100";
+    document.getElementById("dungeon-pulse-ms").value = "100";
+    document.getElementById("dungeon-pause-ms").value = "100";
+    document.getElementById("dungeon-count").value = "3";
+
+    updatePushSettingsVisibility();
+    updateSkipWordsVisibility();
+    saveSettings();
+}
+
+async function testPush() {
+  try {
+    if (!invoke) throw new Error("Tauri invoke function not available");
+    await invoke("push_test", { 
+      title: "BTR 测试通知", 
+      message: "这是一条测试通知，如果您能看到这条消息，说明推送配置正确。" 
+    });
+    showSuccess("测试推送请求已发送");
+  } catch (error) {
+    showError("测试推送失败: " + error);
+  }
 }
 
 function updateUptime() {

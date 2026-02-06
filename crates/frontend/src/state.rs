@@ -41,7 +41,7 @@ pub struct TicketState {
     pub ticket_id: String,
     pub grab_mode: u8,
     pub status_delay: usize,
-    
+
     pub bilibiliticket_list: Vec<BilibiliTicket>,
     pub ticket_info: Option<TicketInfo>,
     pub show_screen_info: Option<i64>,
@@ -72,11 +72,11 @@ pub struct RuntimeState {
     pub policy: Option<Value>,
     pub public_key: String,
     pub machine_id: String,
-    
+
     pub running_status: String,
     pub is_loading: bool,
     pub logs: Vec<String>,
-    
+
     pub task_manager: Box<dyn TaskManager + Send>,
     pub local_captcha: LocalCaptcha,
     pub result_receiver: Option<mpsc::Receiver<common::taskmanager::TaskResult>>,

@@ -25,7 +25,7 @@ pub async fn get_countdown(
         log::debug!("检测到毫秒级时间戳，进行转换: {}", sale_begin_sec);
         sale_begin_sec /= 1000;
     }
-    
+
     let url = "https://api.bilibili.com/x/click-interface/click/now";
     let response = cookie_manager.get(url).await;
     let now_sec = match response.send().await {

@@ -11,9 +11,7 @@ use std::thread;
 use self::{
     grab_ticket_handler::handle_grab_ticket_request,
     login_handler::{
-        handle_login_sms_request,
-        handle_qrcode_login_request,
-        handle_submit_login_sms_request,
+        handle_login_sms_request, handle_qrcode_login_request, handle_submit_login_sms_request,
     },
     order_handler::handle_get_all_order_request,
     push_handler::handle_push_request,
@@ -45,7 +43,7 @@ impl TaskManager for TaskManagerImpl {
 
         let runtime = Arc::new(Runtime::new().unwrap());
         let rt = runtime.clone();
-        
+
         let worker = thread::spawn(move || {
             let mut task_handles: HashMap<String, JoinHandle<()>> = HashMap::new();
             rt.block_on(async {
@@ -111,13 +109,25 @@ impl TaskManager for TaskManagerImpl {
     fn submit_task(&mut self, request: TaskRequest) -> Result<String, String> {
         let task_id = match &request {
             TaskRequest::GetBuyerInfoRequest(req) => {
-                if !req.task_id.is_empty() { req.task_id.clone() } else { uuid::Uuid::new_v4().to_string() }
+                if !req.task_id.is_empty() {
+                    req.task_id.clone()
+                } else {
+                    uuid::Uuid::new_v4().to_string()
+                }
             }
             TaskRequest::GetTicketInfoRequest(req) => {
-                if !req.task_id.is_empty() { req.task_id.clone() } else { uuid::Uuid::new_v4().to_string() }
+                if !req.task_id.is_empty() {
+                    req.task_id.clone()
+                } else {
+                    uuid::Uuid::new_v4().to_string()
+                }
             }
             TaskRequest::GrabTicketRequest(req) => {
-                if !req.task_id.is_empty() { req.task_id.clone() } else { uuid::Uuid::new_v4().to_string() }
+                if !req.task_id.is_empty() {
+                    req.task_id.clone()
+                } else {
+                    uuid::Uuid::new_v4().to_string()
+                }
             }
             _ => uuid::Uuid::new_v4().to_string(),
         };
@@ -132,17 +142,23 @@ impl TaskManager for TaskManagerImpl {
                     status: TaskStatus::Pending,
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::QrCodeLoginTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::QrCodeLoginTask(task));
             }
             TaskRequest::LoginSmsRequest(login_sms_req) => {
-                log::info!("提交短信验证码任务 ID: {}, 手机号: {}", task_id, login_sms_req.phone);
+                log::info!(
+                    "提交短信验证码任务 ID: {}, 手机号: {}",
+                    task_id,
+                    login_sms_req.phone
+                );
                 let task = LoginSmsRequestTask {
                     task_id: task_id.clone(),
                     phone: login_sms_req.phone.clone(),
                     status: TaskStatus::Pending,
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::LoginSmsRequestTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::LoginSmsRequestTask(task));
             }
             TaskRequest::PushRequest(push_req) => {
                 log::info!("提交推送任务 ID: {}", task_id);
@@ -154,10 +170,15 @@ impl TaskManager for TaskManagerImpl {
                     status: TaskStatus::Pending,
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::PushTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::PushTask(task));
             }
             TaskRequest::SubmitLoginSmsRequest(login_sms_req) => {
-                log::info!("提交短信验证码登录任务 ID: {}, 手机号: {}", task_id, login_sms_req.phone);
+                log::info!(
+                    "提交短信验证码登录任务 ID: {}, 手机号: {}",
+                    task_id,
+                    login_sms_req.phone
+                );
                 let task = SubmitLoginSmsRequestTask {
                     task_id: task_id.clone(),
                     phone: login_sms_req.phone.clone(),
@@ -166,7 +187,8 @@ impl TaskManager for TaskManagerImpl {
                     status: TaskStatus::Pending,
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::SubmitLoginSmsRequestTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::SubmitLoginSmsRequestTask(task));
             }
             TaskRequest::GetAllorderRequest(get_order_req) => {
                 log::info!("提交获取全部订单任务 ID: {}", task_id);
@@ -178,7 +200,8 @@ impl TaskManager for TaskManagerImpl {
                     account_id: get_order_req.account_id.clone(),
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::GetAllorderRequestTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::GetAllorderRequestTask(task));
             }
             TaskRequest::GetTicketInfoRequest(get_ticketinfo_req) => {
                 log::info!("提交获取票务信息任务 ID: {}", task_id);
@@ -189,7 +212,8 @@ impl TaskManager for TaskManagerImpl {
                     start_time: Some(std::time::Instant::now()),
                     cookie_manager: get_ticketinfo_req.cookie_manager.clone(),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::GetTicketInfoTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::GetTicketInfoTask(task));
             }
             TaskRequest::GetBuyerInfoRequest(get_buyerinfo_req) => {
                 log::info!("提交获取购票人信息任务 ID: {}", task_id);
@@ -200,7 +224,8 @@ impl TaskManager for TaskManagerImpl {
                     status: TaskStatus::Pending,
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::GetBuyerInfoTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::GetBuyerInfoTask(task));
             }
             TaskRequest::GrabTicketRequest(grab_ticket_req) => {
                 log::info!("提交抢票任务 ID: {}", task_id);
@@ -211,11 +236,15 @@ impl TaskManager for TaskManagerImpl {
                     client: grab_ticket_req.cookie_manager.client.clone(),
                     start_time: Some(std::time::Instant::now()),
                 };
-                self.running_tasks.insert(task_id.clone(), Task::GrabTicketTask(task));
+                self.running_tasks
+                    .insert(task_id.clone(), Task::GrabTicketTask(task));
             }
         }
 
-        if let Err(e) = self.task_sender.blocking_send(TaskMessage::SubmitTask((task_id.clone(), request))) {
+        if let Err(e) = self
+            .task_sender
+            .blocking_send(TaskMessage::SubmitTask((task_id.clone(), request)))
+        {
             return Err(format!("无法提交任务: {}", e));
         }
 
@@ -239,16 +268,19 @@ impl TaskManager for TaskManagerImpl {
     fn get_results(&mut self) -> Vec<TaskResult> {
         let mut results = Vec::new();
         if let Some(rx) = &mut self.result_receiver {
-             while let Ok(result) = rx.try_recv() {
-                 results.push(result);
-             }
+            while let Ok(result) = rx.try_recv() {
+                results.push(result);
+            }
         }
         results
     }
 
     fn cancel_task(&mut self, task_id: &str) -> Result<(), String> {
         if let Some(task) = self.running_tasks.get_mut(task_id) {
-            if let Err(e) = self.task_sender.blocking_send(TaskMessage::CancelTask(task_id.to_owned())) {
+            if let Err(e) = self
+                .task_sender
+                .blocking_send(TaskMessage::CancelTask(task_id.to_owned()))
+            {
                 return Err(format!("无法取消任务: {}", e));
             }
             let new_status = TaskStatus::Cancelled;

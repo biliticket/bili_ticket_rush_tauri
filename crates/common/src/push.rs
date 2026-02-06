@@ -1,8 +1,8 @@
 use crate::config::PushConfig;
 use crate::taskmanager::{PushRequest, PushType, TaskManager, TaskRequest};
-use reqwest::Client;
-use dungeonctl::{Coyote3, Stereo};
 use dungeonctl::coyote3::{DeviceSettings, IntensityChange, Pulse, Pulses};
+use dungeonctl::{Coyote3, Stereo};
+use reqwest::Client;
 
 impl PushConfig {
     pub fn push_all(
@@ -376,16 +376,32 @@ impl PushConfig {
             Err(e) => return (false, format!("连接Dungeon设备失败: {}", e)),
         };
 
-        let _ = coyote.send_pulses(Pulses {
-            intensity: Stereo {
-                a: if self.dungeon_config.channel == 0 { IntensityChange::AbsoluteChange(self.dungeon_config.intensity) } else { IntensityChange::AbsoluteChange(0) },
-                b: if self.dungeon_config.channel == 1 { IntensityChange::AbsoluteChange(self.dungeon_config.intensity) } else { IntensityChange::AbsoluteChange(0) },
-            },
-            pulses: [Stereo {
-                a: Pulse { frequency: 0, intensity: 0 },
-                b: Pulse { frequency: 0, intensity: 0 },
-            }; 4],
-        }).await;
+        let _ = coyote
+            .send_pulses(Pulses {
+                intensity: Stereo {
+                    a: if self.dungeon_config.channel == 0 {
+                        IntensityChange::AbsoluteChange(self.dungeon_config.intensity)
+                    } else {
+                        IntensityChange::AbsoluteChange(0)
+                    },
+                    b: if self.dungeon_config.channel == 1 {
+                        IntensityChange::AbsoluteChange(self.dungeon_config.intensity)
+                    } else {
+                        IntensityChange::AbsoluteChange(0)
+                    },
+                },
+                pulses: [Stereo {
+                    a: Pulse {
+                        frequency: 0,
+                        intensity: 0,
+                    },
+                    b: Pulse {
+                        frequency: 0,
+                        intensity: 0,
+                    },
+                }; 4],
+            })
+            .await;
 
         for _ in 0..self.dungeon_config.count {
             let mut remaining_pulse = self.dungeon_config.pulse_ms;
@@ -396,21 +412,41 @@ impl PushConfig {
                         b: IntensityChange::DoNotChange,
                     },
                     pulses: [Stereo {
-                        a: if self.dungeon_config.channel == 0 { Pulse { frequency: self.dungeon_config.frequency, intensity: 100 } } else { Pulse { frequency: 0, intensity: 0 } },
-                        b: if self.dungeon_config.channel == 1 { Pulse { frequency: self.dungeon_config.frequency, intensity: 100 } } else { Pulse { frequency: 0, intensity: 0 } },
+                        a: if self.dungeon_config.channel == 0 {
+                            Pulse {
+                                frequency: self.dungeon_config.frequency,
+                                intensity: 100,
+                            }
+                        } else {
+                            Pulse {
+                                frequency: 0,
+                                intensity: 0,
+                            }
+                        },
+                        b: if self.dungeon_config.channel == 1 {
+                            Pulse {
+                                frequency: self.dungeon_config.frequency,
+                                intensity: 100,
+                            }
+                        } else {
+                            Pulse {
+                                frequency: 0,
+                                intensity: 0,
+                            }
+                        },
                     }; 4],
                 };
-                
+
                 if let Err(e) = coyote.send_pulses(pulses).await {
                     log::error!("发送脉冲失败: {}", e);
                     break;
                 }
-                
+
                 let sleep_ms = 100.min(remaining_pulse);
                 tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
                 remaining_pulse = remaining_pulse.saturating_sub(100);
             }
-            
+
             let mut remaining_pause = self.dungeon_config.pause_ms;
             while remaining_pause > 0 {
                 let pulses = Pulses {
@@ -419,16 +455,22 @@ impl PushConfig {
                         b: IntensityChange::DoNotChange,
                     },
                     pulses: [Stereo {
-                        a: Pulse { frequency: 0, intensity: 0 },
-                        b: Pulse { frequency: 0, intensity: 0 },
+                        a: Pulse {
+                            frequency: 0,
+                            intensity: 0,
+                        },
+                        b: Pulse {
+                            frequency: 0,
+                            intensity: 0,
+                        },
                     }; 4],
                 };
-                
+
                 if let Err(e) = coyote.send_pulses(pulses).await {
                     log::error!("发送停顿失败: {}", e);
                     break;
                 }
-                
+
                 let sleep_ms = 100.min(remaining_pause);
                 tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
                 remaining_pause = remaining_pause.saturating_sub(100);

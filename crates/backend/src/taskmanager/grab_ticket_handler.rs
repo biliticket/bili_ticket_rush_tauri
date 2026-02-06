@@ -148,7 +148,7 @@ async fn timed_grab_ticket_mode(
     local_captcha: Option<common::captcha::LocalCaptcha>,
 ) {
     log::debug!("定时抢票模式");
-    
+
     // 如果没有项目详情，尝试自动获取
     let project_info = if project_info.is_none() {
         log::info!("后台项目信息缺失，正在自动获取以确定开始时间...");
@@ -842,6 +842,21 @@ async fn try_create_order(
                                     pay_result: None,
                                 });
                                 let _ = result_tx.send(task_result).await;
+
+                                let project_name = &confirm_result.project_name;
+                                let screen_name = &confirm_result.screen_name;
+                                let ticket_name = &confirm_result.ticket_info.name;
+                                let title = format!("抢票成功: {}", project_name);
+                                let message = format!(
+                                    "项目: {}\n场次: {}\n票种: {}\n订单号: {}\n状态: 解析支付信息失败，请前往订单中心支付",
+                                    project_name, screen_name, ticket_name, order_id
+                                );
+                                grab_ticket_req
+                                    .biliticket
+                                    .push_self
+                                    .push_all_async(&title, &message, &None)
+                                    .await;
+
                                 return Some((true, false));
                             }
                             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -862,6 +877,21 @@ async fn try_create_order(
                         pay_result: Some(pay_result.clone()),
                     });
                     let _ = result_tx.send(task_result.clone()).await;
+
+                    let project_name = &confirm_result.project_name;
+                    let screen_name = &confirm_result.screen_name;
+                    let ticket_name = &confirm_result.ticket_info.name;
+                    let title = format!("抢票成功: {}", project_name);
+                    let message = format!(
+                        "项目: {}\n场次: {}\n票种: {}\n订单号: {}\n请尽快支付！",
+                        project_name, screen_name, ticket_name, order_id
+                    );
+                    grab_ticket_req
+                        .biliticket
+                        .push_self
+                        .push_all_async(&title, &message, &None)
+                        .await;
+
                     return Some((true, false)); // 成功，不需要继续重试
                 }
 
