@@ -29,6 +29,7 @@ impl DungeonService {
     pub async fn connect(&self, event_tx: mpsc::Sender<TaskResult>) -> Result<(), String> {
         {
             if self.target_id.lock().await.is_some() {
+                log::debug!("Dungeon 已存在绑定 Target ID，跳过连接请求");
                 return Ok(());
             }
         }
@@ -39,6 +40,7 @@ impl DungeonService {
         let (ws_stream, _) = connect_async(url.to_string())
             .await
             .map_err(|e| e.to_string())?;
+        log::debug!("Dungeon WS 连接已建立");
         let (mut write, mut read) = ws_stream.split();
 
         let writer_clone = self.writer.clone();
@@ -52,6 +54,7 @@ impl DungeonService {
                 match msg {
                     Ok(Message::Text(text)) => {
                         let text_str = text.to_string();
+                        log::debug!("Dungeon 收到消息: {}", text_str);
                         if let Ok(v) = serde_json::from_str::<Value>(&text_str) {
                             let msg_type = v["type"].as_str().unwrap_or("");
                             let message = v["message"].as_str().unwrap_or("");
@@ -60,7 +63,7 @@ impl DungeonService {
                                 if message == "targetId" {
                                     let my_client_id_val = v["clientId"].as_str().unwrap_or("").to_string();
                                     *client_id_clone.lock().await = Some(my_client_id_val.clone());
-                                    log::debug!("获取到 Client ID: {}", my_client_id_val);
+                                    log::info!("获取到 Dungeon Client ID: {}", my_client_id_val);
 
                                     let qr_content = format!(
                                         "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#wss://ws.dungeon-lab.cn/{}",
@@ -83,10 +86,11 @@ impl DungeonService {
                         }
                     }
                     Ok(Message::Ping(_)) => {
+                        log::debug!("Dungeon WS 收到 Ping");
                         let _ = write.send(Message::Pong(vec![].into())).await;
                     }
                     Err(e) => {
-                        log::error!("Dungeon WS 错误: {}", e);
+                        log::error!("Dungeon WS 运行错误: {}", e);
                         return;
                     }
                     _ => {}
@@ -94,28 +98,34 @@ impl DungeonService {
             }
 
             if bound {
+                log::debug!("Dungeon 进入持久连接保持模式");
                 *writer_clone.lock().await = Some(write);
 
                 loop {
                     match read.next().await {
+                        Some(Ok(Message::Text(text))) => {
+                            log::debug!("Dungeon 持久连接收到消息: {}", text);
+                        }
                         Some(Ok(Message::Close(_))) | None => {
-                            log::warn!("Dungeon WS 连接断开");
+                            log::warn!("Dungeon WS 连接已被服务器关闭");
                             break;
                         }
                         Some(Ok(Message::Ping(_))) => {
+                            log::debug!("Dungeon WS 持久连接收到 Ping");
                             let mut w = writer_clone.lock().await;
                             if let Some(w) = w.as_mut() {
                                 let _ = w.send(Message::Pong(vec![].into())).await;
                             }
                         }
                         Some(Err(e)) => {
-                            log::error!("Dungeon WS 读取错误: {}", e);
+                            log::error!("Dungeon WS 持久连接读取错误: {}", e);
                             break;
                         }
                         _ => {}
                     }
                 }
 
+                log::info!("Dungeon 连接已断开，清理绑定信息");
                 *writer_clone.lock().await = None;
                 *target_id_clone.lock().await = None;
             }
@@ -135,6 +145,7 @@ impl DungeonService {
     ) -> Result<String, String> {
         let writer_lock = self.writer.lock().await;
         if writer_lock.is_none() {
+            log::warn!("尝试发送脉冲但 Dungeon 未连接");
             return Err("未连接到 Dungeon 服务".to_string());
         }
 
@@ -142,6 +153,7 @@ impl DungeonService {
         let target_id = self.target_id.lock().await.clone().unwrap_or_default();
 
         if target_id.is_empty() {
+            log::warn!("尝试发送脉冲但 Dungeon 未绑定 Target ID");
             return Err("未绑定 APP".to_string());
         }
 
@@ -153,6 +165,11 @@ impl DungeonService {
         
         let freq_val = period_ms.max(10).min(100);
         let intensity_val = 100;
+
+        log::debug!(
+            "Dungeon 脉冲参数: 频率={}Hz(周期={}ms), 强度={}, 持续={}ms, 间隔={}ms, 次数={}",
+            freq_hz, period_ms, intensity, pulse_ms, pause_ms, count
+        );
 
         let hex_str = format!(
             "{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}",
@@ -203,9 +220,11 @@ impl DungeonService {
         let mut w_guard = self.writer.lock().await;
 
         if let Some(w) = w_guard.as_mut() {
+            log::debug!("发送 Dungeon 强度指令: {}", strength_msg["message"]);
             if let Err(e) = w.send(Message::Text(strength_msg.to_string().into())).await {
                  log::warn!("发送强度设置失败: {}", e);
             }
+            log::debug!("发送 Dungeon 清除指令: {}", clear_msg["message"]);
             if let Err(e) = w.send(Message::Text(clear_msg.to_string().into())).await {
                 return Err(format!("发送清除指令失败: {}", e));
             }
@@ -216,7 +235,7 @@ impl DungeonService {
         drop(w_guard);
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-        log::debug!("开始执行脉冲循环: {} 次", count);
+        log::info!("开始执行 Dungeon 脉冲循环: {} 次", count);
 
         for _ in 0..count {
             let pulse_msg = json!({
@@ -228,11 +247,13 @@ impl DungeonService {
 
             let mut w_guard = self.writer.lock().await;
             if let Some(w) = w_guard.as_mut() {
+                log::debug!("发送 Dungeon 脉冲数据包");
                 if let Err(e) = w.send(Message::Text(pulse_msg.to_string().into())).await {
                     log::error!("发送脉冲失败: {}", e);
                     break;
                 }
             } else {
+                log::error!("发送脉冲时发现连接已断开");
                 break;
             }
             drop(w_guard);
