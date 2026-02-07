@@ -252,8 +252,8 @@ pub async fn sms_login(
     Err("短信登录失败".to_string())
 }
 
-pub fn cookie_login(cookie: &str, client: &Client, ua: &str) -> Result<Account, String> {
-    match add_account(cookie, client, ua) {
+pub async fn cookie_login(cookie: &str, client: &Client, ua: &str) -> Result<Account, String> {
+    match add_account(cookie, client, ua).await {
         Ok(account) => {
             log::info!("ck登录成功");
             Ok(account)

@@ -1,5 +1,5 @@
 use crate::cookie_manager::{self, CookieManager};
-use crate::http_utils::request_get_sync;
+use crate::http_utils::request_get;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -41,23 +41,20 @@ impl std::fmt::Debug for Account {
     }
 }
 
-pub fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, String> {
+pub async fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, String> {
     log::info!("添加账号: {}", cookie);
-    let response = request_get_sync(
+    let response = request_get(
         client,
         "https://api.bilibili.com/x/web-interface/nav",
-        Some(ua.to_string()),
         Some(cookie),
     )
+    .await
     .map_err(|e| e.to_string())?;
 
-    // 创建一个临时的运行时来执行异步代码
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let json = rt
-        .block_on(async { response.json::<serde_json::Value>().await })
-        .map_err(|e| e.to_string())?;
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    
     let cookie_manager = Arc::new(
-        rt.block_on(async { cookie_manager::CookieManager::new(cookie, Some(ua), 0).await }),
+        cookie_manager::CookieManager::new(cookie, Some(ua), 0).await
     );
     log::debug!("获取账号信息: {:?}", json);
     match json.get("code") {
@@ -65,7 +62,7 @@ pub fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, S
         _ => return Err("获取账号信息失败".to_string()),
     }
     if let Some(data) = json.get("data") {
-        let mut account = Account {
+        let account = Account {
             uid: data["mid"].as_i64().unwrap_or(0),
             name: data["uname"]
                 .as_str()
@@ -86,7 +83,6 @@ pub fn add_account(cookie: &str, client: &Client, ua: &str) -> Result<Account, S
             avatar_url: Some(data["face"].as_str().unwrap_or("").to_string()),
             cookie_manager: Some(cookie_manager),
         };
-        account.ensure_client();
         Ok(account)
     } else {
         Err("无法获取用户信息".to_string())

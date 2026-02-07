@@ -25,20 +25,25 @@ pub fn reload_accounts(state: State<'_, AppState>) -> Result<Vec<Account>, Strin
 }
 
 #[tauri::command]
-pub fn add_account_by_cookie(
+pub async fn add_account_by_cookie(
     state: State<'_, AppState>,
     cookie: String,
 ) -> Result<Account, String> {
-    let auth = state
-        .auth
-        .lock()
-        .map_err(|_| "auth lock failed".to_string())?;
+    let (client, default_ua) = {
+        let auth = state
+            .auth
+            .lock()
+            .map_err(|_| "auth lock failed".to_string())?;
+        (auth.client.clone(), auth.default_ua.clone())
+    };
+
+    let account = add_account(&cookie, &client, &default_ua).await?;
+
     let mut config = state
         .config
         .lock()
         .map_err(|_| "config lock failed".to_string())?;
 
-    let account = add_account(&cookie, &auth.client, &auth.default_ua)?;
     config.config.add_account(account.clone());
     config
         .config

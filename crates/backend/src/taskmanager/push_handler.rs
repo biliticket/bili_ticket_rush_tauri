@@ -51,7 +51,12 @@ pub async fn handle_push_request(
                 }
             }
 
-            let (mut succ, msg, mut tid) = push_config
+            let mut effective_config = push_config.clone();
+            if dungeon_handled {
+                effective_config.enabled_methods.retain(|m| m != "dungeon");
+            }
+
+            let (mut succ, msg, mut tid) = effective_config
                 .push_all_async(&title, &message, &jump_url, Some(result_tx.clone()))
                 .await;
 
