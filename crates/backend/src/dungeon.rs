@@ -147,12 +147,12 @@ impl DungeonService {
 
         let channel_char = if channel == 0 { "A" } else { "B" };
         let clear_channel_idx = if channel == 0 { "1" } else { "2" };
-        
+
         let freq_hz = (frequency as u16).max(10).min(100);
         let period_ms = 1000 / freq_hz;
         
         let freq_val = period_ms.max(10).min(100);
-        let intensity_val = intensity.min(100);
+        let intensity_val = 100;
 
         let hex_str = format!(
             "{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}",
@@ -175,6 +175,23 @@ impl DungeonService {
             wave_data.push(hex_str.clone());
         }
 
+        let master_strength = (intensity as u16 * 2).min(200);
+        let strength_msg = if channel == 0 {
+            json!({
+                "type": "msg",
+                "clientId": client_id,
+                "targetId": target_id,
+                "message": format!("strength-1-{}-0", master_strength)
+            })
+        } else {
+            json!({
+                "type": "msg",
+                "clientId": client_id,
+                "targetId": target_id,
+                "message": format!("strength-1-0-{}", master_strength)
+            })
+        };
+
         let clear_msg = json!({
             "type": "msg",
             "clientId": client_id,
@@ -186,6 +203,9 @@ impl DungeonService {
         let mut w_guard = self.writer.lock().await;
 
         if let Some(w) = w_guard.as_mut() {
+            if let Err(e) = w.send(Message::Text(strength_msg.to_string().into())).await {
+                 log::warn!("发送强度设置失败: {}", e);
+            }
             if let Err(e) = w.send(Message::Text(clear_msg.to_string().into())).await {
                 return Err(format!("发送清除指令失败: {}", e));
             }
