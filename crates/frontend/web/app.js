@@ -461,6 +461,7 @@ function initializeEventListeners() {
 document.addEventListener("DOMContentLoaded", function() {
 	console.log("DOM loaded, initializing application...");
 
+    initTheme();
 	initializeTabSwitching();
 	initializeEventListeners();
 
@@ -488,6 +489,25 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	checkTauriAvailability();
 });
+
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        updateThemeIcon(next);
+    });
+}
+
+function updateThemeIcon(theme) {
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
 
 function initializeApp() {
 	console.log("Tauri API available, initializing application...");
