@@ -413,6 +413,13 @@
                      </div>
                      <div class="settings-subgroup channel-settings" id="dungeon-settings">
                         <div class="settings-subtitle">Dungeon 配置</div>
+                        <div id="dungeon-status-box" class="p-12 bg-light rounded-6 mb-16" style="display: flex; justify-content: space-between; align-items: center;">
+                           <div>
+                              <div class="font-12 text-secondary">连接状态</div>
+                              <div id="dungeon-connection-status" class="font-500 color-error">未连接</div>
+                           </div>
+                           <button class="btn btn-primary" style="margin: 0;" onclick="triggerDungeonBind()">绑定 APP</button>
+                        </div>
                         <div class="settings-grid">
                            <div class="settings-item-inner">
                               <label class="form-label">通道</label>

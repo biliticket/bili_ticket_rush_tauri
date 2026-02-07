@@ -102,6 +102,7 @@ fn main() {
             general::get_monitor_stats,
             general::get_recent_logs,
             general::save_settings,
+            general::connect_dungeon,
             general::clear_logs,
         ])
         .run(tauri::generate_context!())

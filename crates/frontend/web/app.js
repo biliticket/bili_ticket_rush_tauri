@@ -1155,6 +1155,29 @@ async function stopGrab() {
 	}
 }
 
+async function triggerDungeonBind() {
+    try {
+        if (!invoke) return;
+        showSuccess("正在发起 Dungeon 绑定请求...");
+        await invoke("connect_dungeon");
+    } catch (error) {
+        showError("发起绑定失败: " + error);
+    }
+}
+
+function updateDungeonStatus(status, targetId = null) {
+    const statusEl = document.getElementById("dungeon-connection-status");
+    if (!statusEl) return;
+
+    if (status === "Connected") {
+        statusEl.textContent = targetId ? `已绑定 (${targetId})` : "已连接 (等待绑定)";
+        statusEl.className = "font-500 color-success";
+    } else {
+        statusEl.textContent = "未连接";
+        statusEl.className = "font-500 color-error";
+    }
+}
+
 async function loadSettings() {
 	try {
 		if (!invoke) throw new Error("Tauri invoke function not available");
@@ -1163,6 +1186,10 @@ async function loadSettings() {
 		document.getElementById("delay-time").value = state.status_delay || "2";
 		document.getElementById("max-attempts").value = state.config?.max_attempts || "100";
 		document.getElementById("skip-words-input").value = state.skip_words ? state.skip_words.join(", ") : "";
+
+    if (state.dungeon_status) {
+        updateDungeonStatus(state.dungeon_status.status, state.dungeon_status.target_id);
+    }
 
 		if (state.custom_config) {
 			document.getElementById("max-token-retry").value = state.custom_config.max_token_retry || "5";
@@ -1417,7 +1444,13 @@ async function init() {
   await loadCountryList();
   setInterval(async () => {
     if (document.getElementById("tab-accounts")?.classList.contains("active")) await reloadAccounts();
-  }, 30000);
+    if (document.getElementById("tab-settings")?.classList.contains("active")) {
+        const state = await invoke("get_state");
+        if (state.dungeon_status) {
+            updateDungeonStatus(state.dungeon_status.status, state.dungeon_status.target_id);
+        }
+    }
+  }, 5000);
 }
 
 async function checkPolicy() {

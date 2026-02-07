@@ -137,7 +137,11 @@ impl PushConfig {
                 dungeon_target_id,
             );
         } else {
-            return (true, format!("{} 个渠道推送成功", success_count), dungeon_target_id);
+            return (
+                true,
+                format!("{} 个渠道推送成功", success_count),
+                dungeon_target_id,
+            );
         }
     }
     pub async fn push_gotify(

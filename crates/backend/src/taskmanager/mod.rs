@@ -19,7 +19,7 @@ use self::{
 };
 use common::taskmanager::*;
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 
 pub struct TaskManagerImpl {
@@ -28,6 +28,7 @@ pub struct TaskManagerImpl {
     running_tasks: HashMap<String, Task>,
     runtime: Arc<Runtime>,
     _worker_thread: Option<thread::JoinHandle<()>>,
+    pub dungeon_service: Arc<Mutex<Option<Arc<crate::dungeon::DungeonService>>>>,
 }
 
 enum TaskMessage {
@@ -44,13 +45,19 @@ impl TaskManager for TaskManagerImpl {
         let runtime = Arc::new(Runtime::new().unwrap());
         let rt = runtime.clone();
 
+        let dungeon_service = Arc::new(Mutex::new(None));
+        let ds_clone = dungeon_service.clone();
+
         let worker = thread::spawn(move || {
             let mut task_handles: HashMap<String, JoinHandle<()>> = HashMap::new();
+
             rt.block_on(async {
                 while let Some(msg) = task_rx.recv().await {
                     match msg {
                         TaskMessage::SubmitTask((task_id, request)) => {
                             let result_tx = result_tx.clone();
+                            let ds_for_task = ds_clone.clone();
+
                             let handle = match request {
                                 TaskRequest::QrCodeLoginRequest(qrcode_req) => {
                                     tokio::spawn(handle_qrcode_login_request(qrcode_req, result_tx))
@@ -59,7 +66,10 @@ impl TaskManager for TaskManagerImpl {
                                     tokio::spawn(handle_login_sms_request(login_sms_req, result_tx))
                                 }
                                 TaskRequest::PushRequest(push_req) => {
-                                    tokio::spawn(handle_push_request(push_req, result_tx))
+                                    let ds_guard = ds_for_task.lock().await;
+                                    let ds_opt: Option<Arc<crate::dungeon::DungeonService>> =
+                                        ds_guard.clone();
+                                    tokio::spawn(handle_push_request(push_req, result_tx, ds_opt))
                                 }
                                 TaskRequest::SubmitLoginSmsRequest(login_sms_req) => tokio::spawn(
                                     handle_submit_login_sms_request(login_sms_req, result_tx),
@@ -103,6 +113,7 @@ impl TaskManager for TaskManagerImpl {
             running_tasks: HashMap::new(),
             runtime,
             _worker_thread: Some(worker),
+            dungeon_service,
         }
     }
 

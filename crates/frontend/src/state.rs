@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
+use backend::dungeon::DungeonService;
 use backend::taskmanager::TaskManagerImpl;
 use common::account::Account;
 use common::captcha::LocalCaptcha;
@@ -82,6 +83,8 @@ pub struct RuntimeState {
     pub task_manager: Box<dyn TaskManager + Send>,
     pub local_captcha: LocalCaptcha,
     pub result_receiver: Option<mpsc::Receiver<common::taskmanager::TaskResult>>,
+    pub result_sender: Option<mpsc::Sender<common::taskmanager::TaskResult>>,
+    pub dungeon_service: Option<std::sync::Arc<backend::dungeon::DungeonService>>,
 }
 
 pub struct UiState {
@@ -174,7 +177,13 @@ impl AppState {
 
         let (tx, rx) = mpsc::channel(100);
         let mut task_manager = Box::new(TaskManagerImpl::new());
-        task_manager.set_result_sender(tx);
+        task_manager.set_result_sender(tx.clone());
+
+        let dungeon_service = Arc::new(DungeonService::new());
+        {
+            let mut ds_lock = task_manager.dungeon_service.blocking_lock();
+            *ds_lock = Some(dungeon_service.clone());
+        }
 
         let runtime_state = RuntimeState {
             app: APP_NAME.to_string(),
@@ -189,6 +198,8 @@ impl AppState {
             task_manager,
             local_captcha: LocalCaptcha::new(),
             result_receiver: Some(rx),
+            result_sender: Some(tx),
+            dungeon_service: Some(dungeon_service),
         };
 
         let ui_state = UiState {

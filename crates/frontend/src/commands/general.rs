@@ -1,7 +1,5 @@
 use crate::state::AppState;
-use crate::utils::{
-    create_client, current_timestamp, decode_permissions, decode_policy,
-};
+use crate::utils::{create_client, current_timestamp, decode_permissions, decode_policy};
 use common::PushType;
 use common::config::Project;
 use common::taskmanager::{PushRequest, TaskRequest};
@@ -188,7 +186,31 @@ pub fn set_skip_words_input(state: State<'_, AppState>, input: String) -> Result
 }
 
 #[tauri::command]
-pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
+
+pub async fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
+    let dungeon_status = {
+        let dungeon_service = {
+            let runtime = state.runtime.lock().map_err(|_| "runtime lock failed")?;
+            runtime.dungeon_service.clone()
+        };
+
+        if let Some(service) = dungeon_service {
+            let tid = service.target_id.lock().await.clone();
+            let cid = service.client_id.lock().await.clone();
+
+            if cid.is_some() {
+                json!({
+                    "status": "Connected",
+                    "target_id": tid
+                })
+            } else {
+                json!({ "status": "Disconnected" })
+            }
+        } else {
+            json!({ "status": "Not Initialized" })
+        }
+    };
+
     let ui = state.ui.lock().map_err(|_| "ui lock failed")?;
     let runtime = state.runtime.lock().map_err(|_| "runtime lock failed")?;
     let auth = state.auth.lock().map_err(|_| "auth lock failed")?;
@@ -225,10 +247,11 @@ pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
         },
         "custom_config": config.custom_config,
         "push_config": config.push_config,
-        "config": config.config
+        "config": config.config,
+        "dungeon_status": dungeon_status
+
     }))
 }
-
 #[tauri::command]
 pub fn add_project(state: State<'_, AppState>, id: String, name: String) -> Result<(), String> {
     let mut config = state
@@ -323,7 +346,7 @@ pub fn get_recent_logs(state: State<'_, AppState>, count: usize) -> Result<Vec<S
 }
 
 #[tauri::command]
-pub fn save_settings(
+pub async fn save_settings(
     state: State<'_, AppState>,
     grab_mode: u8,
     delay_time: u64,
@@ -352,72 +375,129 @@ pub fn save_settings(
     dungeon_pause_ms: u64,
     dungeon_count: u8,
 ) -> Result<(), String> {
-    let mut config = state
-        .config
-        .lock()
-        .map_err(|_| "config lock failed".to_string())?;
-    let mut ticket = state
-        .ticket
-        .lock()
-        .map_err(|_| "ticket lock failed".to_string())?;
-    let mut auth = state
-        .auth
-        .lock()
-        .map_err(|_| "auth lock failed".to_string())?;
+    {
+        let mut config = state
+            .config
+            .lock()
+            .map_err(|_| "config lock failed".to_string())?;
+        let mut ticket = state
+            .ticket
+            .lock()
+            .map_err(|_| "ticket lock failed".to_string())?;
+        let mut auth = state
+            .auth
+            .lock()
+            .map_err(|_| "auth lock failed".to_string())?;
 
-    ticket.grab_mode = grab_mode;
-    ticket.status_delay = delay_time as usize;
+        ticket.grab_mode = grab_mode;
+        ticket.status_delay = delay_time as usize;
 
-    config.custom_config.open_custom_ua = custom_ua;
-    config.custom_config.custom_ua = user_agent.clone();
-    config.custom_config.max_token_retry = max_token_retry;
-    config.custom_config.max_confirm_retry = max_confirm_retry;
-    config.custom_config.max_fake_check_retry = max_fake_check_retry;
-    config.custom_config.max_order_retry = max_order_retry;
-    config.custom_config.retry_interval_ms = retry_interval_ms;
+        config.custom_config.open_custom_ua = custom_ua;
+        config.custom_config.custom_ua = user_agent.clone();
+        config.custom_config.max_token_retry = max_token_retry;
+        config.custom_config.max_confirm_retry = max_confirm_retry;
+        config.custom_config.max_fake_check_retry = max_fake_check_retry;
+        config.custom_config.max_order_retry = max_order_retry;
+        config.custom_config.retry_interval_ms = retry_interval_ms;
 
-    config.push_config.enabled = enable_push;
-    config.push_config.enabled_methods = enabled_methods;
-    config.push_config.bark_token = bark_token;
-    config.push_config.pushplus_token = pushplus_token;
-    config.push_config.fangtang_token = fangtang_token;
-    config.push_config.dingtalk_token = dingtalk_token;
-    config.push_config.wechat_token = wechat_token;
-    config.push_config.gotify_config.gotify_url = gotify_url;
-    config.push_config.gotify_config.gotify_token = gotify_token;
+        config.push_config.enabled = enable_push;
+        config.push_config.enabled_methods = enabled_methods.clone();
+        config.push_config.bark_token = bark_token;
+        config.push_config.pushplus_token = pushplus_token;
+        config.push_config.fangtang_token = fangtang_token;
+        config.push_config.dingtalk_token = dingtalk_token;
+        config.push_config.wechat_token = wechat_token;
+        config.push_config.gotify_config.gotify_url = gotify_url;
+        config.push_config.gotify_config.gotify_token = gotify_token;
 
-    config.push_config.dungeon_config.channel = dungeon_channel;
-    config.push_config.dungeon_config.intensity = dungeon_intensity;
-    config.push_config.dungeon_config.frequency = dungeon_frequency;
-    config.push_config.dungeon_config.pulse_ms = dungeon_pulse_ms;
-    config.push_config.dungeon_config.pause_ms = dungeon_pause_ms;
-    config.push_config.dungeon_config.count = dungeon_count;
-    config.push_config.dungeon_config.enabled = config
-        .push_config
-        .enabled_methods
-        .contains(&"dungeon".to_string());
+        config.push_config.dungeon_config.channel = dungeon_channel;
+        config.push_config.dungeon_config.intensity = dungeon_intensity;
+        config.push_config.dungeon_config.frequency = dungeon_frequency;
+        config.push_config.dungeon_config.pulse_ms = dungeon_pulse_ms;
+        config.push_config.dungeon_config.pause_ms = dungeon_pause_ms;
+        config.push_config.dungeon_config.count = dungeon_count;
+        config.push_config.dungeon_config.enabled = config
+            .push_config
+            .enabled_methods
+            .contains(&"dungeon".to_string());
 
-    config.skip_words = skip_words.clone();
+        config.skip_words = skip_words.clone();
 
-    config.config.grab_mode = grab_mode;
-    config.config.delay_time = delay_time;
-    config.config.max_attempts = max_attempts;
-    config.config.push_config = config.push_config.clone();
-    config.config.custom_config = config.custom_config.clone();
-    config.config.skip_words = skip_words;
+        config.config.grab_mode = grab_mode;
+        config.config.delay_time = delay_time;
+        config.config.max_attempts = max_attempts;
+        config.config.push_config = config.push_config.clone();
+        config.config.custom_config = config.custom_config.clone();
+        config.config.skip_words = skip_words;
 
-    if custom_ua && !user_agent.is_empty() {
-        auth.default_ua = user_agent.clone();
-        auth.client = create_client(user_agent);
+        if custom_ua && !user_agent.is_empty() {
+            auth.default_ua = user_agent.clone();
+            auth.client = create_client(user_agent);
+        }
+
+        if let Err(e) = config.config.save_config() {
+            log::error!("保存配置失败: {}", e);
+            return Err(format!("保存配置失败: {}", e));
+        }
     }
 
-    if let Err(e) = config.config.save_config() {
-        log::error!("保存配置失败: {}", e);
-        return Err(format!("保存配置失败: {}", e));
+    if enable_push && enabled_methods.contains(&"dungeon".to_string()) {
+        let (dungeon_service, sender) = {
+            let runtime = state
+                .runtime
+                .lock()
+                .map_err(|_| "runtime lock failed".to_string())?;
+            (
+                runtime.dungeon_service.clone(),
+                runtime.result_sender.clone(),
+            )
+        };
+
+        if let (Some(service), Some(sender)) = (dungeon_service, sender) {
+            let needs_connect = {
+                let tid = service.target_id.lock().await;
+                tid.is_none()
+            };
+
+            if needs_connect {
+                log::info!("Dungeon 已启用但尚未连接，正在尝试连接……");
+                let service_clone = service.clone();
+                let sender_clone = sender.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = service_clone.connect(sender_clone).await {
+                        log::error!("Dungeon 连接失败: {}", e);
+                    }
+                });
+            }
+        }
     }
 
     log::info!("设置已保存!");
     Ok(())
+}
+#[tauri::command]
+pub async fn connect_dungeon(state: State<'_, AppState>) -> Result<(), String> {
+    let (dungeon_service, sender) = {
+        let runtime = state
+            .runtime
+            .lock()
+            .map_err(|_| "runtime lock failed".to_string())?;
+        (runtime.dungeon_service.clone(), runtime.result_sender.clone())
+    };
+
+    if let (Some(service), Some(sender)) = (dungeon_service, sender) {
+        log::info!("手动发起 Dungeon 连接...");
+        let service_clone = service.clone();
+        let sender_clone = sender.clone();
+        tokio::spawn(async move {
+            if let Err(e) = service_clone.connect(sender_clone).await {
+                log::error!("Dungeon 连接失败: {}", e);
+            }
+        });
+        Ok(())
+    } else {
+        Err("Dungeon 服务未初始化".to_string())
+    }
 }
 
 #[tauri::command]
