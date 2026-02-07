@@ -1,4 +1,5 @@
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
@@ -72,6 +73,7 @@ pub struct RuntimeState {
     pub policy: Option<Value>,
     pub public_key: String,
     pub machine_id: String,
+    pub permissions: Option<Value>,
 
     pub running_status: String,
     pub is_loading: bool,
@@ -105,13 +107,13 @@ pub struct UiState {
     pub announce4: Option<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OrderData {
     pub account_id: String,
     pub data: Option<OrderResponse>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AccountSwitch {
     pub uid: String,
     pub switch: bool,
@@ -180,6 +182,7 @@ impl AppState {
             policy: None,
             public_key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKcaQEApTAS0RElXIs4Kr0bO4n8\nJB+eBFF/TwXUlvtOM9FNgHjK8m13EdwXaLy9zjGTSQr8tshSRr0dQ6iaCG19Zo2Y\nXfvJrwQLqdezMN+ayMKFy58/S9EGG3Np2eGgKHUPnCOAlRicqWvBdQ/cxzTDNCxa\nORMZdJRoBvya7JijLLIC3CoqmMc6Fxe5i8eIP0zwlyZ0L0C1PQ82BcWn58y7tlPY\nTCz12cWnuKwiQ9LSOfJ4odJJQK0k7rXxwBBsYxULRno0CJ3rKfApssW4cfITYVax\nFtdbu0IUsgEeXs3EzNw8yIYnsaoZlFwLS8SMVsiAFOy2y14lR9043PYAQHm1Cjaf\noQIDAQAB\n-----END PUBLIC KEY-----".to_string(),
             machine_id: machine_id::get_machine_id_ob(),
+            permissions: None,
             running_status: "空闲".to_string(),
             is_loading: false,
             logs: Vec::new(),

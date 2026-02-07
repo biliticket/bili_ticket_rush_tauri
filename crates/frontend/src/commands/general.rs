@@ -1,6 +1,6 @@
 use crate::state::AppState;
 use crate::utils::{
-    create_client, current_timestamp, decode_permissions, decode_policy, save_permissions,
+    create_client, current_timestamp, decode_permissions, decode_policy,
 };
 use common::PushType;
 use common::config::Project;
@@ -98,13 +98,12 @@ pub async fn get_policy(state: State<'_, AppState>) -> Result<Value, String> {
 
     if let Some(permission_token) = value["data"]["permission"].as_str() {
         let permissions = decode_permissions(permission_token, &public_key)?;
-        save_permissions(permission_token);
         {
-            let mut config = state
-                .config
+            let mut runtime = state
+                .runtime
                 .lock()
-                .map_err(|_| "config lock failed".to_string())?;
-            config.config.permissions = permissions;
+                .map_err(|_| "runtime lock failed".to_string())?;
+            runtime.permissions = Some(permissions);
         }
     }
     Ok(policy)
@@ -214,6 +213,8 @@ pub fn get_state(state: State<'_, AppState>) -> Result<Value, String> {
         "show_add_buyer_window": ui.show_add_buyer_window,
         "show_orderlist_window": ui.show_orderlist_window,
         "show_qr_windows": ui.show_qr_windows,
+        "account_switch": ui.account_switch,
+        "total_order_data": ui.total_order_data,
         "skip_words": config.skip_words,
         "login_input": {
             "phone": auth.login_input.phone,

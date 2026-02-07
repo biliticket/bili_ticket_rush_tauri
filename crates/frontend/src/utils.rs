@@ -79,9 +79,3 @@ pub fn decode_permissions(token: &str, public_key: &str) -> Result<Value, String
         .map(|data| data.claims.permissions)
         .map_err(|e| format!("decode permissions failed: {}", e))
 }
-
-pub fn save_permissions(token: &str) {
-    if let Ok(mut file) = std::fs::File::create("permissions") {
-        let _ = std::io::Write::write_all(&mut file, token.as_bytes());
-    }
-}

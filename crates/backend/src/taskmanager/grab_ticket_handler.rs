@@ -462,9 +462,9 @@ async fn leak_grab_ticket_mode(
     _screen_id: String,
     _ticket_id: String,
     count: i16,
-    mut is_hot: bool,
+    _is_hot: bool,
     skip_words: Option<Vec<String>>,
-    rng: StdRng,
+    _rng: StdRng,
     task_id: String,
     uid: i64,
     result_tx: &mpsc::Sender<TaskResult>,
@@ -477,6 +477,7 @@ async fn leak_grab_ticket_mode(
     log::debug!("捡漏模式");
     let mut token_retry_count = 0;
     let max_token_retry = custon_config.max_token_retry as i8;
+    let mut is_hot;
 
     'main_loop: loop {
         let project_data =
@@ -505,7 +506,7 @@ async fn leak_grab_ticket_mode(
             grab_ticket_req.biliticket.screen_id = screen_data.id.to_string();
             log::info!("当前项目有可抢票场次，开始抢票！");
 
-            'ticket_loop: for ticket_data in screen_data.ticket_list {
+            for ticket_data in screen_data.ticket_list {
                 if !ticket_data.clickable {
                     continue;
                 }
@@ -846,17 +847,34 @@ async fn try_create_order(
                                 let project_name = &confirm_result.project_name;
                                 let screen_name = &confirm_result.screen_name;
                                 let ticket_name = &confirm_result.ticket_info.name;
-                                let jump_url = Some(format!("bilibili://mall/web?url=https://mall.bilibili.com/neul-next/ticket/orderDetail.html?order_id={}", order_id.to_string()));
+                                let jump_url = Some(format!(
+                                    "bilibili://mall/web?url=https://mall.bilibili.com/neul-next/ticket/orderDetail.html?order_id={}",
+                                    order_id.to_string()
+                                ));
                                 let title = format!("抢票成功: {}", project_name);
                                 let message = format!(
                                     "项目: {}\n场次: {}\n票种: {}\n订单号: {}\n状态: 解析支付信息失败，请前往订单中心支付",
                                     project_name, screen_name, ticket_name, order_id
                                 );
-                                grab_ticket_req
+                                log::info!(
+                                    "准备发送推送通知(Fallback)... 启用渠道: {:?}",
+                                    grab_ticket_req.biliticket.push_self.enabled_methods
+                                );
+                                let (push_success, push_msg, _) = grab_ticket_req
                                     .biliticket
                                     .push_self
-                                    .push_all_async(&title, &message, &jump_url)
+                                    .push_all_async(
+                                        &title,
+                                        &message,
+                                        &jump_url,
+                                        Some(result_tx.clone()),
+                                    )
                                     .await;
+                                log::info!(
+                                    "推送结果(Fallback): 成功={}, 信息={}",
+                                    push_success,
+                                    push_msg
+                                );
 
                                 return Some((true, false));
                             }
@@ -882,17 +900,23 @@ async fn try_create_order(
                     let project_name = &confirm_result.project_name;
                     let screen_name = &confirm_result.screen_name;
                     let ticket_name = &confirm_result.ticket_info.name;
-                    let jump_url = Some(format!("bilibili://mall/web?url=https://mall.bilibili.com/neul-next/ticket/orderDetail.html?order_id={}", order_id.to_string()));
+                    let jump_url = Some(format!(
+                        "bilibili://mall/web?url=https://mall.bilibili.com/neul-next/ticket/orderDetail.html?order_id={}",
+                        order_id.to_string()
+                    ));
                     let title = format!("抢票成功: {}", project_name);
                     let message = format!(
                         "项目: {}\n场次: {}\n票种: {}\n订单号: {}\n请尽快支付！",
                         project_name, screen_name, ticket_name, order_id
                     );
-                    log::info!("准备发送推送通知... 启用渠道: {:?}", grab_ticket_req.biliticket.push_self.enabled_methods);
-                    let (push_success, push_msg) = grab_ticket_req
+                    log::info!(
+                        "准备发送推送通知... 启用渠道: {:?}",
+                        grab_ticket_req.biliticket.push_self.enabled_methods
+                    );
+                    let (push_success, push_msg, _) = grab_ticket_req
                         .biliticket
                         .push_self
-                        .push_all_async(&title, &message, &jump_url)
+                        .push_all_async(&title, &message, &jump_url, Some(result_tx.clone()))
                         .await;
                     log::info!("推送结果: 成功={}, 信息={}", push_success, push_msg);
 

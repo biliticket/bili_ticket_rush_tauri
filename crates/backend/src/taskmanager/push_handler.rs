@@ -11,13 +11,13 @@ pub async fn handle_push_request(push_req: PushRequest, result_tx: mpsc::Sender<
 
     log::info!("开始处理推送任务 ID: {}, 类型: {:?}", task_id, push_type);
 
-    let (success, result_message) = match push_type {
+    let (success, result_message, dungeon_target_id) = match push_type {
         PushType::All => {
             push_config
-                .push_all_async(&title, &message, &jump_url)
+                .push_all_async(&title, &message, &jump_url, Some(result_tx.clone()))
                 .await
         }
-        _ => (false, "未实现的推送类型".to_string()),
+        _ => (false, "未实现的推送类型".to_string(), None),
     };
 
     let task_result = TaskResult::PushResult(PushRequestResult {
@@ -25,6 +25,7 @@ pub async fn handle_push_request(push_req: PushRequest, result_tx: mpsc::Sender<
         success,
         message: result_message,
         push_type: push_type.clone(),
+        dungeon_target_id,
     });
 
     if let Err(e) = result_tx.send(task_result).await {

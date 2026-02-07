@@ -1,8 +1,13 @@
 use crate::config::PushConfig;
-use crate::taskmanager::{PushRequest, PushType, TaskManager, TaskRequest};
-use dungeonctl::coyote3::{DeviceSettings, IntensityChange, Pulse, Pulses};
-use dungeonctl::{Coyote3, Stereo};
+use crate::taskmanager::{
+    DungeonQrResult, PushRequest, PushType, TaskManager, TaskRequest, TaskResult,
+};
+use futures_util::{SinkExt, StreamExt};
 use reqwest::Client;
+use serde_json::json;
+use tokio::sync::mpsc;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use url::Url;
 
 impl PushConfig {
     pub fn push_all(
@@ -37,10 +42,12 @@ impl PushConfig {
         title: &str,
         message: &str,
         jump_url: &Option<String>,
-    ) -> (bool, String) {
+        result_tx: Option<mpsc::Sender<TaskResult>>,
+    ) -> (bool, String, Option<String>) {
         let mut success_count = 0;
         let mut failure_count = 0;
         let mut failures = Vec::new();
+        let mut dungeon_target_id = None;
 
         if self.enabled_methods.contains(&"bark".to_string()) && !self.bark_token.is_empty() {
             let (success, msg) = self.push_bark(title, message).await;
@@ -108,9 +115,10 @@ impl PushConfig {
         }
 
         if self.enabled_methods.contains(&"dungeon".to_string()) && self.dungeon_config.enabled {
-            let (success, msg) = self.push_dungeon().await;
+            let (success, msg, target_id) = self.push_dungeon(result_tx).await;
             if success {
                 success_count += 1;
+                dungeon_target_id = target_id;
             } else {
                 failure_count += 1;
                 failures.push(format!("Dungeon推送出错: {}", msg));
@@ -126,9 +134,10 @@ impl PushConfig {
                     failure_count,
                     failures.join("; ")
                 ),
+                dungeon_target_id,
             );
         } else {
-            return (true, format!("{} 个渠道推送成功", success_count));
+            return (true, format!("{} 个渠道推送成功", success_count), dungeon_target_id);
         }
     }
     pub async fn push_gotify(
@@ -361,123 +370,148 @@ impl PushConfig {
         }
     }
 
-    pub async fn push_dungeon(&self) -> (bool, String) {
-        let coyote = match Coyote3::connect()
-            .settings(DeviceSettings {
-                limit: Stereo {
-                    a: self.dungeon_config.intensity.saturating_add(20),
-                    b: self.dungeon_config.intensity.saturating_add(20),
-                },
-                ..Default::default()
-            })
-            .await
-        {
-            Ok(c) => c,
-            Err(e) => return (false, format!("连接Dungeon设备失败: {}", e)),
+    pub async fn push_dungeon(
+        &self,
+        result_tx: Option<mpsc::Sender<TaskResult>>,
+    ) -> (bool, String, Option<String>) {
+        let ws_url = "wss://ws.dungeon-lab.cn";
+        let url = match Url::parse(ws_url) {
+            Ok(u) => u,
+            Err(e) => return (false, format!("解析WebSocket URL失败: {}", e), None),
         };
 
-        let _ = coyote
-            .send_pulses(Pulses {
-                intensity: Stereo {
-                    a: if self.dungeon_config.channel == 0 {
-                        IntensityChange::AbsoluteChange(self.dungeon_config.intensity)
-                    } else {
-                        IntensityChange::AbsoluteChange(0)
-                    },
-                    b: if self.dungeon_config.channel == 1 {
-                        IntensityChange::AbsoluteChange(self.dungeon_config.intensity)
-                    } else {
-                        IntensityChange::AbsoluteChange(0)
-                    },
-                },
-                pulses: [Stereo {
-                    a: Pulse {
-                        frequency: 0,
-                        intensity: 0,
-                    },
-                    b: Pulse {
-                        frequency: 0,
-                        intensity: 0,
-                    },
-                }; 4],
-            })
-            .await;
+        log::info!("正在连接 Dungeon Socket 服务: {}", ws_url);
 
-        for _ in 0..self.dungeon_config.count {
-            let mut remaining_pulse = self.dungeon_config.pulse_ms;
-            while remaining_pulse > 0 {
-                let pulses = Pulses {
-                    intensity: Stereo {
-                        a: IntensityChange::DoNotChange,
-                        b: IntensityChange::DoNotChange,
-                    },
-                    pulses: [Stereo {
-                        a: if self.dungeon_config.channel == 0 {
-                            Pulse {
-                                frequency: self.dungeon_config.frequency,
-                                intensity: 100,
-                            }
-                        } else {
-                            Pulse {
-                                frequency: 0,
-                                intensity: 0,
-                            }
-                        },
-                        b: if self.dungeon_config.channel == 1 {
-                            Pulse {
-                                frequency: self.dungeon_config.frequency,
-                                intensity: 100,
-                            }
-                        } else {
-                            Pulse {
-                                frequency: 0,
-                                intensity: 0,
-                            }
-                        },
-                    }; 4],
-                };
-
-                if let Err(e) = coyote.send_pulses(pulses).await {
-                    log::error!("发送脉冲失败: {}", e);
-                    break;
-                }
-
-                let sleep_ms = 100.min(remaining_pulse);
-                tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
-                remaining_pulse = remaining_pulse.saturating_sub(100);
+        let (ws_stream, _) = match connect_async(url).await {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("连接 Socket 服务失败: {}", e);
+                return (false, format!("连接 Socket 服务失败: {}", e), None);
             }
+        };
 
-            let mut remaining_pause = self.dungeon_config.pause_ms;
-            while remaining_pause > 0 {
-                let pulses = Pulses {
-                    intensity: Stereo {
-                        a: IntensityChange::DoNotChange,
-                        b: IntensityChange::DoNotChange,
-                    },
-                    pulses: [Stereo {
-                        a: Pulse {
-                            frequency: 0,
-                            intensity: 0,
-                        },
-                        b: Pulse {
-                            frequency: 0,
-                            intensity: 0,
-                        },
-                    }; 4],
-                };
+        let (mut write, mut read) = ws_stream.split();
+        let mut client_id = String::new();
+        let mut target_id = String::new();
+        let mut bound = false;
 
-                if let Err(e) = coyote.send_pulses(pulses).await {
-                    log::error!("发送停顿失败: {}", e);
-                    break;
+        let timeout = std::time::Duration::from_secs(60);
+        let start_time = std::time::Instant::now();
+
+        log::debug!("WebSocket 连接成功，等待服务器返回 Client ID...");
+
+        while start_time.elapsed() < timeout {
+            match tokio::time::timeout(std::time::Duration::from_secs(1), read.next()).await {
+                Ok(Some(Ok(msg))) => {
+                    if let Message::Text(text) = msg {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                            let msg_type = v["type"].as_str().unwrap_or("");
+                            let message = v["message"].as_str().unwrap_or("");
+
+                            if msg_type == "bind" {
+                                if message == "targetId" {
+                                    client_id = v["clientId"].as_str().unwrap_or("").to_string();
+                                    log::debug!("获取到 Client ID: {}", client_id);
+
+                                    let qr_content = format!(
+                                        "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#wss://ws.dungeon-lab.cn/{}",
+                                        client_id
+                                    );
+                                    if let Some(ref tx) = result_tx {
+                                        let _ = tx
+                                            .send(TaskResult::DungeonQrResult(DungeonQrResult {
+                                                task_id: "".to_string(),
+                                                qr_url: qr_content,
+                                            }))
+                                            .await;
+                                    }
+                                } else if message == "200"
+                                    || !v["targetId"].as_str().unwrap_or("").is_empty()
+                                {
+                                    target_id = v["targetId"].as_str().unwrap_or("").to_string();
+                                    log::debug!("App 绑定成功! Target ID: {}", target_id);
+                                    bound = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
-
-                let sleep_ms = 100.min(remaining_pause);
-                tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
-                remaining_pause = remaining_pause.saturating_sub(100);
+                Ok(Some(Err(e))) => {
+                    return (false, format!("WS 读取错误: {}", e), None);
+                }
+                Ok(None) => {
+                    return (false, "WS 连接被服务器断开".to_string(), None);
+                }
+                Err(_) => {
+                    // Timeout
+                }
             }
         }
 
-        let _ = coyote.disconnect().await;
-        (true, "Dungeon指令发送成功".to_string())
+        if !bound {
+            return (
+                false,
+                "等待 App 绑定超时，请确保 App 已扫描二维码并连接".to_string(),
+                None,
+            );
+        }
+
+        let channel_idx = self.dungeon_config.channel;
+        let channel_char = if channel_idx == 0 { "A" } else { "B" };
+        let clear_channel_idx = if channel_idx == 0 { "1" } else { "2" };
+
+        let freq_val = (self.dungeon_config.frequency as u16).max(10).min(100);
+        let intensity = self.dungeon_config.intensity.min(100);
+
+        let hex_str = format!(
+            "{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}",
+            freq_val, freq_val, freq_val, freq_val, intensity, intensity, intensity, intensity
+        );
+
+        let pulse_duration = self.dungeon_config.pulse_ms.max(100);
+        let num_chunks = (pulse_duration + 99) / 100;
+        let num_chunks = num_chunks.min(100);
+
+        let mut wave_data = Vec::new();
+        for _ in 0..num_chunks {
+            wave_data.push(hex_str.clone());
+        }
+
+        let clear_msg = json!({
+            "type": "msg",
+            "clientId": client_id,
+            "targetId": target_id,
+            "message": format!("clear-{}", clear_channel_idx)
+        });
+
+        if let Err(e) = write.send(Message::Text(clear_msg.to_string())).await {
+            return (false, format!("发送清除指令失败: {}", e), None);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        log::debug!("开始执行脉冲循环: {} 次", self.dungeon_config.count);
+
+        for i in 0..self.dungeon_config.count {
+            log::debug!("发送第 {}/{} 次脉冲", i + 1, self.dungeon_config.count);
+            let pulse_msg = json!({
+                "type": "msg",
+                "clientId": client_id,
+                "targetId": target_id,
+                "message": format!("pulse-{}:{}", channel_char, serde_json::to_string(&wave_data).unwrap())
+            });
+
+            if let Err(e) = write.send(Message::Text(pulse_msg.to_string())).await {
+                log::error!("发送脉冲失败: {}", e);
+                break;
+            }
+
+            let sleep_time = self.dungeon_config.pulse_ms + self.dungeon_config.pause_ms;
+            tokio::time::sleep(std::time::Duration::from_millis(sleep_time)).await;
+        }
+
+        let _ = write.close().await;
+
+        (true, "WebSocket 脉冲发送完成".to_string(), Some(target_id))
     }
 }

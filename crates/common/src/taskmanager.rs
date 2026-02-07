@@ -65,6 +65,13 @@ pub enum TaskResult {
     GetTicketInfoResult(GetTicketInfoResult),
     GetBuyerInfoResult(GetBuyerInfoResult),
     GrabTicketResult(GrabTicketResult),
+    DungeonQrResult(DungeonQrResult),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DungeonQrResult {
+    pub task_id: String,
+    pub qr_url: String,
 }
 
 //抢票请求
@@ -185,6 +192,7 @@ pub struct PushRequestResult {
     pub success: bool,
     pub message: String,
     pub push_type: PushType,
+    pub dungeon_target_id: Option<String>,
 }
 
 #[derive(Clone)]

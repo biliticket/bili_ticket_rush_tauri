@@ -224,6 +224,11 @@ pub fn poll_task_results(state: State<'_, AppState>) -> Result<Value, String> {
                 "pay_result": r.pay_result,
                 "confirm_result": r.confirm_result
             }),
+            TaskResult::DungeonQrResult(r) => json!({
+                "type": "DungeonQrResult",
+                "task_id": r.task_id,
+                "qr_url": r.qr_url
+            }),
         })
         .collect();
 

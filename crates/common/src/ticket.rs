@@ -256,22 +256,24 @@ impl Default for SaleFlag {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ScreenTicketInfo {
-    pub saleStart: usize,        //开售时间(时间戳)   eg：1720260000
-    pub saleEnd: usize,          //截止时间(时间戳)
-    pub id: usize,               //票种id
-    pub project_id: usize,       //项目id
-    pub price: usize,            //票价(分)
-    pub desc: String,            //票种描述
-    pub sale_start: String,      //开售时间（字符串）    eg:2024-07-06 18:00:00
-    pub sale_end: String,        //截止时间（字符串）
-    pub r#type: usize,           //类型 关键词替换，对应”type“
-    pub sale_type: usize,        //销售状态
-    pub is_sale: usize,          //是否销售？0是1否
-    pub num: usize,              //数量
-    pub sale_flag: SaleFlag,     //售票状态
-    pub clickable: bool,         //是否可点（可售）
-    pub sale_flag_number: usize, //售票标志位
-    pub screen_name: String,     //场次名称
+    #[serde(rename = "saleStart")]
+    pub sale_start_timestamp: usize, //开售时间(时间戳)   eg：1720260000
+    #[serde(rename = "saleEnd")]
+    pub sale_end_timestamp: usize, //截止时间(时间戳)
+    pub id: usize,                 //票种id
+    pub project_id: usize,         //项目id
+    pub price: usize,              //票价(分)
+    pub desc: String,              //票种描述
+    pub sale_start: String,        //开售时间（字符串）    eg:2024-07-06 18:00:00
+    pub sale_end: String,          //截止时间（字符串）
+    pub r#type: usize,             //类型 关键词替换，对应”type“
+    pub sale_type: usize,          //销售状态
+    pub is_sale: usize,            //是否销售？0是1否
+    pub num: usize,                //数量
+    pub sale_flag: SaleFlag,       //售票状态
+    pub clickable: bool,           //是否可点（可售）
+    pub sale_flag_number: usize,   //售票标志位
+    pub screen_name: String,       //场次名称
     #[serde(default, rename = "less_lv")]
     pub less_lv: i32, //最低等级需求
 }
@@ -332,10 +334,10 @@ pub struct BuyerInfo {
     pub id_card_back: String,
     #[serde(default)]
     pub verify_status: i64,
-    #[serde(default)]
-    pub isBuyerInfoVerified: bool,
-    #[serde(default)]
-    pub isBuyerValid: bool,
+    #[serde(default, rename = "isBuyerInfoVerified")]
+    pub is_buyer_info_verified: bool,
+    #[serde(default, rename = "isBuyerValid")]
+    pub is_buyer_valid: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

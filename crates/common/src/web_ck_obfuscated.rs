@@ -443,6 +443,7 @@ fn _obfuscated_delay() {
     std::thread::sleep(_d1::from_millis(_delay));
 }
 
+#[allow(dead_code)]
 fn hmac_sha256(key: &str, message: &str) -> Result<String, Box<dyn std::error::Error>> {
     _calc_hmac(key, message).map_err(|e| e.into())
 }

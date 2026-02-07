@@ -1,6 +1,5 @@
 use crate::account::Account;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -30,8 +29,6 @@ pub struct BtrConfig {
     pub delay_time: u64,
     #[serde(default = "default_max_attempts")]
     pub max_attempts: u64,
-    #[serde(default)]
-    pub permissions: Value,
     #[serde(default)]
     pub skip_words: Option<Vec<String>>,
 }
@@ -68,7 +65,6 @@ impl Default for BtrConfig {
             grab_mode: 0,
             delay_time: default_delay_time(),
             max_attempts: default_max_attempts(),
-            permissions: Value::Null,
             skip_words: None,
         }
     }
@@ -165,6 +161,8 @@ pub struct DungeonConfig {
     pub pulse_ms: u64,
     pub pause_ms: u64,
     pub count: u8,
+    #[serde(skip)]
+    pub target_id: Option<String>,
 }
 
 impl Default for DungeonConfig {
@@ -177,6 +175,7 @@ impl Default for DungeonConfig {
             pulse_ms: 100,
             pause_ms: 100,
             count: 3,
+            target_id: None,
         }
     }
 }

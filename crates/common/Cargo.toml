@@ -33,6 +33,8 @@ bili_ticket_gt = { git = "https://github.com/Amorter/biliTicker_gt", branch = "r
 reqwest = { version = "0.11.27", features = ["json", "blocking", "cookies"] }
 uuid = { version = "1.20", features = ["v4", "fast-rng"] }
 rsa = "0.9"
-dungeonctl = { version = "0.1", features = ["coyote3"] }
 btleplug = "0.11"
 futures-util = "0.3"
+tokio-tungstenite = { version = "0.20", features = ["native-tls"] }
+url = "2.4"
+futures-channel = "0.3"

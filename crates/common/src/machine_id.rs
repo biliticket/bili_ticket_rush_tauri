@@ -349,9 +349,8 @@ fn _fetch_attributes() -> BTreeMap<String, String> {
         if let Ok(output) = Command::new("df").args(&["--output=source", "/"]).output() {
             let stdout = String::from_utf8_lossy(&output.stdout);
 
-            let mut found = false;
             for (i, line) in stdout.lines().enumerate() {
-                if i > 0 && !found {
+                if i > 0 {
                     let dev_path = line.trim();
                     if dev_path.starts_with("/dev/") {
                         let disk_id = &dev_path[5..];
@@ -386,7 +385,6 @@ fn _fetch_attributes() -> BTreeMap<String, String> {
 
                                 if let Some(s) = serial {
                                     _metadata.insert("disk".to_string(), s);
-                                    found = true;
                                     break;
                                 }
                             }
