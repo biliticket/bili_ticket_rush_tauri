@@ -147,8 +147,11 @@ impl DungeonService {
 
         let channel_char = if channel == 0 { "A" } else { "B" };
         let clear_channel_idx = if channel == 0 { "1" } else { "2" };
-
-        let freq_val = (frequency as u16).max(10).min(100);
+        
+        let freq_hz = (frequency as u16).max(10).min(100);
+        let period_ms = 1000 / freq_hz;
+        
+        let freq_val = period_ms.max(10).min(100);
         let intensity_val = intensity.min(100);
 
         let hex_str = format!(
