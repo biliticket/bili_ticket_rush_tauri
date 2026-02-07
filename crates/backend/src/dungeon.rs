@@ -28,7 +28,7 @@ impl DungeonService {
 
     pub async fn connect(&self, event_tx: mpsc::Sender<TaskResult>) -> Result<(), String> {
         {
-            if self.writer.lock().await.is_some() && self.target_id.lock().await.is_some() {
+            if self.target_id.lock().await.is_some() {
                 return Ok(());
             }
         }
